@@ -4,6 +4,8 @@ A 5-servo robotic arm (turret, mirrored shoulder pair, elbow, gripper) built on
 an Arduino (Uno or Mega) with a PCA9685 servo driver board, controlled from a
 browser over USB serial (Web Serial API).
 
+> **What's new:** body tracking with hand-controlled claw, a simulator you can use with no arm, a redesigned page, and a hosted site at https://robotic-arm-control.vercel.app. See the [changelog](CHANGELOG.md).
+
 ## Hardware
 
 - Arduino Uno or Mega
