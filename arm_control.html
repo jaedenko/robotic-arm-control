@@ -124,7 +124,7 @@
   body:not(.is-connected) .needs-conn { opacity: 0.45; pointer-events: none; }
 
   /* ---- arm view (the one loud thing) ---- */
-  .stage { border: 1px solid var(--line); border-radius: 8px; background: var(--plate); overflow: hidden; }
+  .stage { position: relative; border: 1px solid var(--line); border-radius: 8px; background: var(--plate); overflow: hidden; }
   .stage svg { display: block; width: 100%; height: auto; }
   #diagram { border-bottom: 1px solid var(--line); }
   .grid-line { stroke: var(--grid); stroke-width: 1; fill: none; }
@@ -280,6 +280,21 @@
   .save-seq-row label { font-size: 13px; color: var(--dim); display: flex; align-items: center; gap: 4px; }
   .backup-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 
+  .d-jaw { stroke: var(--paper); stroke-width: 5; stroke-linecap: round; }
+  .sim-badge {
+    display: none; position: absolute; top: 10px; left: 10px; z-index: 1;
+    font: 600 13px/1 var(--cond); padding: 5px 10px; border-radius: 999px;
+    background: var(--signal); color: var(--signal-ink);
+  }
+  body.is-sim .sim-badge { display: block; }
+  .dot.sim { background: var(--signal); box-shadow: 0 0 0 4px rgba(255, 138, 61, 0.2); }
+  body.is-connected #simBtn { display: none; }
+  .serial-mon { display: none; padding: 10px 14px; border-top: 1px solid var(--line); }
+  body.is-sim .serial-mon { display: block; }
+  .serial-mon pre {
+    margin: 8px 0 0; height: 110px; overflow: auto;
+    font: 12px/1.5 ui-monospace, 'SF Mono', Consolas, Menlo, monospace; color: var(--dim);
+  }
   footer { max-width: 1180px; margin: 0 auto; padding: 18px 20px 48px; color: var(--dim); font-size: 14px; }
   footer a { color: var(--signal); }
 
@@ -309,13 +324,14 @@
   <div class="status"><div class="dot" id="dot"></div><span id="statusText">Not connected</span></div>
   <div class="top-actions">
     <button id="stopAllBtn" class="stop-all-btn" title="Stop all motion (Esc)">STOP</button>
+    <button id="simBtn" title="Try everything on screen without an arm">Simulator</button>
     <button id="connectBtn" class="primary">Connect</button>
   </div>
 </header>
 
 <main>
   <div class="banner" id="unsupported" hidden>
-    This browser can't talk to the Arduino. Open this page in Chrome or Edge on a computer.
+    This browser can't talk to an Arduino. You can still try the simulator here, or open this page in Chrome or Edge on a computer to connect an arm.
   </div>
 
   <section class="welcome" id="welcome">
@@ -325,11 +341,12 @@
       <li>Press Connect and choose the Arduino's serial port.</li>
       <li>Move the arm with the sliders, the keyboard, or your own arm in front of the camera.</li>
     </ol>
-    <p class="note">The controls below unlock once you're connected.</p>
+    <p class="note">The controls below unlock once you're connected. No arm with you? Press Simulator to test everything on screen.</p>
   </section>
 
   <div class="cols">
     <section class="stage" aria-label="Live arm view">
+      <div class="sim-badge">Simulator: no arm connected</div>
       <svg id="diagram" viewBox="0 0 340 230" role="img" aria-label="Side view of the arm">
         <defs>
           <pattern id="gridPat" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -343,6 +360,7 @@
         <line id="link2" class="d-link2" x1="170" y1="91" x2="170" y2="21"/>
         <circle class="d-joint" cx="170" cy="186" r="7"/>
         <circle id="elbowDot" class="d-joint" cx="170" cy="91" r="7"/>
+        <g id="clawGlyph"><line id="jawL" class="d-jaw" x1="0" y1="0" x2="-10" y2="-22"/><line id="jawR" class="d-jaw" x1="0" y1="0" x2="10" y2="-22"/></g>
         <circle id="handDot" class="d-hand" cx="170" cy="21" r="6"/>
         <text id="shLabel" class="d-label" x="170" y="222" text-anchor="middle">Shoulder 90°</text>
         <text id="elLabel" class="d-label" x="184" y="82">Elbow 90°</text>
@@ -364,6 +382,10 @@
           <div><dt>Claw</dt><dd><b id="rG">OPEN</b></dd></div>
         </dl>
       </div>
+      <details class="serial-mon" open>
+        <summary>Serial monitor: what the Arduino receives</summary>
+        <pre id="serialLog"></pre>
+      </details>
       <div class="cam-wrap" id="camWrap" hidden>
         <div class="cam" id="cam" hidden>
           <video id="trackVideo" playsinline muted></video>
@@ -465,9 +487,10 @@
 
       <section class="sec needs-conn">
         <h2>Follow my arm</h2>
-        <p class="sub">Your webcam tracks one of your arms and the robot copies it. Video stays in your browser.</p>
+        <p class="sub">Your webcam tracks one of your arms and the robot copies it. Open or close your hand to open or close the claw. Video stays in your browser.</p>
         <button id="trackBtn" class="primary" disabled>Start tracking</button>
         <p class="track-status" id="trackMsg"></p>
+        <p class="track-status" id="trackHand"></p>
         <div class="track-opts">
           <label>Follow my
             <select id="trackArm">
@@ -476,6 +499,7 @@
             </select>
             arm
           </label>
+          <label><input type="checkbox" id="trackClaw" checked> Open and close the claw with my hand</label>
         </div>
         <details style="margin-top:10px;">
           <summary>The arm moves the wrong way</summary>
@@ -642,6 +666,20 @@
     }
   }
 
+  // everything that changes when an arm (or the simulator) becomes the active connection
+  function markConnected(label, btnText) {
+    connected = true;
+    dot.classList.add('connected');
+    dot.classList.toggle('sim', simActive);
+    statusText.textContent = label;
+    connectBtn.textContent = btnText;
+    Object.values(sliders).forEach(s => s.disabled = false);
+    setJoystickEnabled(true);
+    trackBtn.disabled = false;
+    document.body.classList.add('is-connected');
+    renderSequences();
+  }
+
   async function connect() {
     if (!('serial' in navigator)) {
       statusText.textContent = 'Web Serial not supported (use Chrome/Edge)';
@@ -651,15 +689,7 @@
       port = await navigator.serial.requestPort();
       await port.open({ baudRate: 9600 });
       writer = port.writable.getWriter();
-      connected = true;
-      dot.classList.add('connected');
-      statusText.textContent = 'Connected';
-      connectBtn.textContent = 'Disconnect';
-      Object.values(sliders).forEach(s => s.disabled = false);
-      setJoystickEnabled(true);
-      trackBtn.disabled = false;
-      document.body.classList.add('is-connected');
-      renderSequences();
+      markConnected('Connected', 'Disconnect');
       setTimeout(() => {
         send('T' + sliders.T.value);
         send('S' + sliders.S.value);
@@ -677,7 +707,9 @@
       if (port) { await port.close(); }
     } catch (err) { console.error(err); }
     connected = false;
-    document.body.classList.remove('is-connected');
+    simActive = false;
+    document.body.classList.remove('is-connected', 'is-sim');
+    dot.classList.remove('sim');
     stopTracking();
     writer = null; port = null;
     dot.classList.remove('connected');
@@ -686,9 +718,96 @@
     Object.values(sliders).forEach(s => s.disabled = true);
     setJoystickEnabled(false);
     renderSequences();
+    updateDiagram();
   }
 
   connectBtn.addEventListener('click', () => { connected ? disconnect() : connect(); });
+
+  // ---- simulator: a virtual arm behind a fake serial port ----
+  // The page sends the same text commands it would send to the Arduino. A fake "port" feeds them to
+  // applyCommand(), which follows the firmware's rules, and the arm view shows the virtual arm
+  // catching up at servo-like speed.
+  // <simCommand>
+  const CLAW_OPEN_DEG = 90, CLAW_CLOSE_DEG = 35;
+  // Mirrors processCommand() in arm_serial_control.ino: same commands, same joint limits.
+  function applyCommand(cmd, tgt) {
+    cmd = cmd.trim();
+    if (cmd.length < 2) return;
+    const lim = (k, v) => Math.max(LIMITS[k][0], Math.min(LIMITS[k][1], v));
+    const toInt = (str) => parseInt(str, 10) || 0; // like Arduino's String.toInt(): junk becomes 0
+    const type = cmd[0], rest = cmd.slice(1);
+    if (type === 'T') tgt.T = lim('T', toInt(rest));
+    else if (type === 'S') tgt.S = lim('S', toInt(rest));
+    else if (type === 'E') tgt.E = lim('E', toInt(rest));
+    else if (type === 'G') tgt.g = toInt(rest) === 1 ? CLAW_OPEN_DEG : CLAW_CLOSE_DEG;
+    else if (type === 'M') {
+      const a = rest.indexOf(','), b = rest.indexOf(',', a + 1);
+      if (a > 0 && b > a) {
+        tgt.T = lim('T', toInt(rest.slice(0, a)));
+        tgt.S = lim('S', toInt(rest.slice(a + 1, b)));
+        tgt.E = lim('E', toInt(rest.slice(b + 1)));
+      }
+    }
+  }
+  // </simCommand>
+
+  const SIM_SPEED = 240, SIM_CLAW_SPEED = 400; // degrees per second, roughly a hobby servo
+  let simActive = false, simBuf = '', simLast = 0, serialDirty = false;
+  const simState = { T: 90, S: 90, E: 90, g: CLAW_OPEN_DEG };  // where the virtual arm is
+  const simTarget = { T: 90, S: 90, E: 90, g: CLAW_OPEN_DEG }; // where the commands told it to go
+  const serialLines = [];
+  const serialLog = document.getElementById('serialLog');
+  const simBtn = document.getElementById('simBtn');
+
+  function simReceive(text) {
+    simBuf += text;
+    let i;
+    while ((i = simBuf.indexOf('\n')) >= 0) {
+      const line = simBuf.slice(0, i).trim();
+      simBuf = simBuf.slice(i + 1);
+      if (!line) continue;
+      applyCommand(line, simTarget);
+      serialLines.push(line);
+      if (serialLines.length > 60) serialLines.shift();
+      serialDirty = true;
+    }
+  }
+
+  function moveToward(from, to, maxStep) { return from + Math.max(-maxStep, Math.min(maxStep, to - from)); }
+
+  function simFrame(now) {
+    if (!simActive) return;
+    const dt = Math.min(0.1, (now - simLast) / 1000);
+    simLast = now;
+    for (const k of ['T', 'S', 'E']) simState[k] = moveToward(simState[k], simTarget[k], SIM_SPEED * dt);
+    simState.g = moveToward(simState.g, simTarget.g, SIM_CLAW_SPEED * dt);
+    updateDiagram();
+    if (serialDirty) {
+      serialDirty = false;
+      serialLog.textContent = serialLines.join('\n');
+      serialLog.scrollTop = serialLog.scrollHeight;
+    }
+    requestAnimationFrame(simFrame);
+  }
+
+  function connectSim() {
+    if (connected) return;
+    Object.assign(simState, { T: 90, S: 90, E: 90, g: CLAW_OPEN_DEG });
+    Object.assign(simTarget, simState);
+    simBuf = '';
+    serialLines.length = 0;
+    serialLog.textContent = '';
+    writer = { write: async (bytes) => simReceive(new TextDecoder().decode(bytes)), releaseLock() {} };
+    simActive = true;
+    document.body.classList.add('is-sim');
+    markConnected('Simulator: no arm connected', 'Exit simulator');
+    // same start-up handshake as a real connection: tell the arm where the sliders are
+    send('T' + sliders.T.value); send('S' + sliders.S.value); send('E' + sliders.E.value);
+    send('G' + (clawOpen ? '1' : '0'));
+    simLast = performance.now();
+    requestAnimationFrame(simFrame);
+  }
+  simBtn.addEventListener('click', connectSim);
   document.getElementById('stopAllBtn').addEventListener('click', stopAllMotion);
 
   // ---- backup: export/import ----
@@ -958,7 +1077,7 @@
   // ---- body tracking: webcam -> turret/shoulder/elbow ----
   // MediaPipe Pose runs in the browser (model + wasm load from CDN on first use).
   // Follows one arm: upper-arm elevation -> shoulder, elbow bend -> elbow,
-  // wrist sideways offset -> turret. The claw stays on the space bar.
+  // wrist sideways offset -> turret. Open/closed hand -> claw (or use the space bar).
   let TRACK_ARM = 'right';                               // which of YOUR arms to follow: 'left' | 'right' (set from the UI)
   const TRACK_INVERT = { T: false, S: false, E: false }; // flip a joint if the arm moves the wrong way
   const TRACK_SMOOTH = 0.3;                              // share of the gap to the target closed per frame (lower = smoother, laggier)
@@ -986,17 +1105,77 @@
   }
   // </armToJoints>
 
+  // <handOpenness>
+  // MediaPipe Hands landmarks: 0 = wrist; each finger is [knuckle, middle joint, tip].
+  const FINGERS = [[5, 6, 8], [9, 10, 12], [13, 14, 16], [17, 18, 20]]; // index, middle, ring, pinky
+  // How many of the four fingers are extended: the tip is farther from the wrist than the middle joint.
+  // Both distances are measured from the same point, so hand size and camera distance don't matter.
+  function extendedFingers(h, aspect) {
+    const d = (i) => Math.hypot((h[i].x - h[0].x) * aspect, h[i].y - h[0].y);
+    return FINGERS.filter(([, mid, tip]) => d(tip) > d(mid)).length;
+  }
+  // Of the detected hands, the one whose wrist sits on the tracked arm's wrist. Handedness labels flip
+  // with mirroring, so position is more reliable. Returns null if no hand is close enough.
+  function pickHand(hands, wrist, aspect) {
+    let best = null, bestDist = 0.15;
+    for (const h of hands) {
+      const dist = Math.hypot((h[0].x - wrist.x) * aspect, h[0].y - wrist.y);
+      if (dist < bestDist) { best = h; bestDist = dist; }
+    }
+    return best;
+  }
+  // </handOpenness>
+
   let trackingOn = false, poseLandmarker = null, trackStream = null;
   let trackLastVideoTime = -1, trackLastFrame = null;
   const trackCur = {};
   const trackVideo = document.getElementById('trackVideo');
   const trackBtn = document.getElementById('trackBtn');
   const trackMsg = document.getElementById('trackMsg');
+  const trackHand = document.getElementById('trackHand');
+  const trackClawBox = document.getElementById('trackClaw');
   const camEl = document.getElementById('cam');
   const trackCanvas = document.getElementById('trackCanvas');
   trackMsg.textContent = TRACK_HINT;
 
-  function drawTrackOverlay(pts) {
+  let handLandmarker = null, handLoading = null, mpLib = null, mpFileset = null;
+  const HAND_MODEL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+  async function loadMp() {
+    if (!mpLib) {
+      mpLib = await import(MP_BASE + '/vision_bundle.mjs');
+      mpFileset = await mpLib.FilesetResolver.forVisionTasks(MP_BASE + '/wasm');
+    }
+  }
+  function ensureHands() {
+    if (!handLandmarker && !handLoading) {
+      handLoading = (async () => {
+        await loadMp();
+        handLandmarker = await mpLib.HandLandmarker.createFromOptions(mpFileset, {
+          baseOptions: { modelAssetPath: HAND_MODEL }, runningMode: 'VIDEO', numHands: 2 });
+      })().finally(() => { handLoading = null; });
+    }
+    return handLoading || Promise.resolve();
+  }
+
+  // Open hand = claw open, fist = claw closed. In-between (two fingers) changes nothing, and the new
+  // state has to hold for a few frames in a row so a flicker doesn't toggle the claw.
+  let clawVotes = 0;
+  function updateClawFromHand(hands, wrist, aspect) {
+    const hand = pickHand(hands, wrist, aspect);
+    if (!hand) {
+      clawVotes = 0;
+      trackHand.textContent = 'Hand not visible, so the claw stays as it is.';
+      return null;
+    }
+    const n = extendedFingers(hand, aspect);
+    const want = n >= 3 ? true : n <= 1 ? false : clawOpen;
+    trackHand.textContent = 'Hand: ' + (n >= 3 ? 'open' : n <= 1 ? 'closed' : 'in between');
+    if (want === clawOpen) clawVotes = 0;
+    else if (++clawVotes >= 4) { clawVotes = 0; setClaw(want); }
+    return hand;
+  }
+
+  function drawTrackOverlay(pts, hand) {
     const w = trackVideo.videoWidth, h = trackVideo.videoHeight;
     if (trackCanvas.width !== w || trackCanvas.height !== h) { trackCanvas.width = w; trackCanvas.height = h; }
     const g = trackCanvas.getContext('2d');
@@ -1010,19 +1189,31 @@
     pts.forEach((p, i) => g[i ? 'lineTo' : 'moveTo'](p.x * w, p.y * h));
     g.stroke();
     pts.forEach(p => { g.beginPath(); g.arc(p.x * w, p.y * h, g.lineWidth * 1.4, 0, 2 * Math.PI); g.fill(); });
+    if (hand) {
+      g.fillStyle = clawOpen ? '#5fd39a' : '#ff8a3d';
+      hand.forEach(p => { g.beginPath(); g.arc(p.x * w, p.y * h, g.lineWidth * 0.7, 0, 2 * Math.PI); g.fill(); });
+    }
   }
 
   async function startTracking() {
     if (!connected || trackingOn) return;
     const myEpoch = motionEpoch;
+    let clawNote = '';
     trackBtn.disabled = true;
     try {
       trackMsg.textContent = 'Loading pose model…';
       if (!poseLandmarker) {
-        const { PoseLandmarker, FilesetResolver } = await import(MP_BASE + '/vision_bundle.mjs');
-        poseLandmarker = await PoseLandmarker.createFromOptions(
-          await FilesetResolver.forVisionTasks(MP_BASE + '/wasm'),
+        await loadMp();
+        poseLandmarker = await mpLib.PoseLandmarker.createFromOptions(mpFileset,
           { baseOptions: { modelAssetPath: POSE_MODEL }, runningMode: 'VIDEO', numPoses: 1 });
+      }
+      if (trackClawBox.checked) {
+        try { await ensureHands(); }
+        catch (err) {
+          console.error('[tracking] hand model failed', err);
+          trackClawBox.checked = false; // this session only
+          clawNote = " Hand tracking couldn't load, so the claw stays manual.";
+        }
       }
       trackStream = await navigator.mediaDevices.getUserMedia({ video: true });
       trackVideo.srcObject = trackStream;
@@ -1044,7 +1235,7 @@
     document.getElementById('camWrap').hidden = false;
     trackBtn.textContent = 'Stop tracking';
     trackBtn.disabled = false;
-    trackMsg.textContent = TRACK_HINT;
+    trackMsg.textContent = TRACK_HINT + clawNote;
     requestAnimationFrame(trackFrame);
   }
 
@@ -1059,6 +1250,8 @@
     trackBtn.textContent = 'Start tracking';
     trackBtn.disabled = !connected;
     trackMsg.textContent = TRACK_HINT;
+    trackHand.textContent = '';
+    clawVotes = 0;
   }
 
   function trackFrame(now) {
@@ -1073,13 +1266,18 @@
     const pts = lm && (TRACK_ARM === 'right' ? [12, 14, 16] : [11, 13, 15]).map(i => lm[i]);
     if (!pts || pts.some(p => p.visibility < 0.5)) {
       drawTrackOverlay(null);
+      trackHand.textContent = '';
       trackMsg.textContent = 'Your arm is out of view, so the robot is holding still.';
       return;
     }
     trackMsg.textContent = TRACK_HINT;
-    drawTrackOverlay(pts);
+    const aspect = trackVideo.videoWidth / trackVideo.videoHeight;
+    const hand = trackClawBox.checked && handLandmarker
+      ? updateClawFromHand(handLandmarker.detectForVideo(trackVideo, now).landmarks, pts[2], aspect)
+      : null;
+    drawTrackOverlay(pts, hand);
 
-    const raw = armToJoints(pts[0], pts[1], pts[2], trackVideo.videoWidth / trackVideo.videoHeight);
+    const raw = armToJoints(pts[0], pts[1], pts[2], aspect);
     const maxStep = JOG_SPEED * dt; // jog-speed slider doubles as a speed limit, so the arm never snaps
     for (const k of ['T', 'S', 'E']) {
       const [lo, hi] = LIMITS[k];
@@ -1095,13 +1293,24 @@
   const TRACK_CFG_KEY = 'armControlTrack';
   try {
     const c = JSON.parse(localStorage.getItem(TRACK_CFG_KEY));
-    if (c) { TRACK_ARM = c.arm === 'left' ? 'left' : 'right'; Object.assign(TRACK_INVERT, c.invert); }
+    if (c) { TRACK_ARM = c.arm === 'left' ? 'left' : 'right'; Object.assign(TRACK_INVERT, c.invert); trackClawBox.checked = c.claw !== false; }
   } catch (e) { /* no saved settings */ }
   function saveTrackCfg() {
-    try { localStorage.setItem(TRACK_CFG_KEY, JSON.stringify({ arm: TRACK_ARM, invert: TRACK_INVERT })); } catch (e) { /* storage blocked */ }
+    try { localStorage.setItem(TRACK_CFG_KEY, JSON.stringify({ arm: TRACK_ARM, invert: TRACK_INVERT, claw: trackClawBox.checked })); } catch (e) { /* storage blocked */ }
   }
   const trackArmSel = document.getElementById('trackArm');
   trackArmSel.value = TRACK_ARM;
+  trackClawBox.addEventListener('change', () => {
+    saveTrackCfg();
+    trackClawBox.blur();
+    trackHand.textContent = '';
+    if (trackClawBox.checked && trackingOn) {
+      ensureHands().catch(() => {
+        trackClawBox.checked = false;
+        trackHand.textContent = "Hand tracking couldn't load, so the claw stays manual.";
+      });
+    }
+  });
   trackArmSel.addEventListener('change', () => { TRACK_ARM = trackArmSel.value; saveTrackCfg(); trackArmSel.blur(); });
   ['T', 'S', 'E'].forEach(k => {
     const box = document.getElementById('flip' + k);
@@ -1450,6 +1659,7 @@
     clawState.className = 'claw-state ' + (open ? 'open' : 'closed');
     rG.textContent = open ? 'OPEN' : 'CLOSED';
     send('G' + (open ? '1' : '0'));
+    updateDiagram();
   }
   document.getElementById('clawOpenBtn').addEventListener('click', () => setClaw(true));
   document.getElementById('clawCloseBtn').addEventListener('click', () => setClaw(false));
@@ -1466,6 +1676,9 @@
   const elbowDot = document.getElementById('elbowDot');
   const handDot = document.getElementById('handDot');
   const turretNeedle = document.getElementById('turretNeedle');
+  const clawGlyph = document.getElementById('clawGlyph');
+  const jawL = document.getElementById('jawL');
+  const jawR = document.getElementById('jawR');
   const shLabel = document.getElementById('shLabel');
   const elLabel = document.getElementById('elLabel');
 
@@ -1481,9 +1694,11 @@
   }
 
   function updateDiagram() {
-    const shoulderVal = parseInt(sliders.S.value, 10);
-    const elbowVal = parseInt(sliders.E.value, 10);
-    const turretVal = parseInt(sliders.T.value, 10);
+    // simulator: show the virtual arm (it lags the commands like a real servo); otherwise the commanded pose
+    const shoulderVal = Math.round(simActive ? simState.S : parseInt(sliders.S.value, 10));
+    const elbowVal = Math.round(simActive ? simState.E : parseInt(sliders.E.value, 10));
+    const turretVal = Math.round(simActive ? simState.T : parseInt(sliders.T.value, 10));
+    const clawDeg = simActive ? simState.g : (clawOpen ? CLAW_OPEN_DEG : CLAW_CLOSE_DEG);
 
     const baseX = 170, baseY = 186;
     const L1 = 95, L2 = 70;
@@ -1502,6 +1717,12 @@
     link2.setAttribute('x2', handX);  link2.setAttribute('y2', handY);
     elbowDot.setAttribute('cx', elbowX); elbowDot.setAttribute('cy', elbowY);
     handDot.setAttribute('cx', handX); handDot.setAttribute('cy', handY);
+
+    // claw: two jaws along the forearm, spread by how open the claw is
+    const half = (3 + 37 * (clawDeg - CLAW_CLOSE_DEG) / (CLAW_OPEN_DEG - CLAW_CLOSE_DEG)) * Math.PI / 180;
+    clawGlyph.setAttribute('transform', `translate(${handX} ${handY}) rotate(${link2Deg})`);
+    jawL.setAttribute('x2', -26 * Math.sin(half)); jawL.setAttribute('y2', -26 * Math.cos(half));
+    jawR.setAttribute('x2', 26 * Math.sin(half)); jawR.setAttribute('y2', -26 * Math.cos(half));
 
     shLabel.textContent = 'Shoulder ' + shoulderVal + '°';
     elLabel.textContent = 'Elbow ' + elbowVal + '°';
