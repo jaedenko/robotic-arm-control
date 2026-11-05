@@ -67,6 +67,19 @@ supported in Firefox/Safari). Features:
   stays on the space bar. `node tracking_check.js` sanity-checks the angle math.
 - A STOP button that instantly halts any running animation, sequence, jog, or tracking
 
+#### Hosted version
+
+The control page is deployed on Vercel at **https://robotic-arm-control.vercel.app**.
+It's served over HTTPS, so Web Serial and the webcam (body tracking) work without
+running a local server. Open it in Chrome or Edge on the computer the Arduino is
+plugged into.
+
+- Vercel project: `robotic-arm-control` (team `jajaphet02-8025`)
+- Static site, no build step. `vercel.json` rewrites `/` to `arm_control.html`.
+- The Vercel project is linked to this repo, so pushes redeploy automatically.
+  Production currently points at the `arm-tracking` branch; once it's merged,
+  pushes to `main` become the production deploy.
+
 If double-clicking the HTML file doesn't allow it to connect (some Chrome
 versions restrict Web Serial on `file://` pages), serve it locally instead:
 
