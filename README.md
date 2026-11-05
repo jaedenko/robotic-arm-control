@@ -59,7 +59,13 @@ supported in Firefox/Safari). Features:
 - Sequences: chain presets together with per-step move duration and repeat/loop,
   editable after saving
 - Export/import of presets & sequences as a JSON backup file
-- A STOP button that instantly halts any running animation, sequence, or jog
+- **Body tracking**: the "Track my arm" button uses your webcam (MediaPipe Pose,
+  runs in the browser) to drive the arm. Upper-arm elevation → shoulder, elbow
+  bend → elbow, wrist sideways offset → turret. Speed is capped by the jog-speed
+  slider. Choose which arm to follow and flip any joint that moves the wrong way
+  via `TRACK_ARM` / `TRACK_INVERT` at the top of the tracking block. The claw
+  stays on the space bar. `node tracking_check.js` sanity-checks the angle math.
+- A STOP button that instantly halts any running animation, sequence, jog, or tracking
 
 If double-clicking the HTML file doesn't allow it to connect (some Chrome
 versions restrict Web Serial on `file://` pages), serve it locally instead:

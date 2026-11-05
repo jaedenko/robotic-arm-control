@@ -480,6 +480,13 @@
     </div>
   </div>
 
+  <div class="joystick-panel">
+    <h2>Body Tracking</h2>
+    <video id="trackVideo" playsinline muted style="display:none; width:100%; border-radius:6px; margin-bottom:10px; transform:scaleX(-1);"></video>
+    <button id="trackBtn" disabled>Track my arm</button>
+    <div class="joystick-hint" id="trackMsg" style="margin-top:10px;"></div>
+  </div>
+
   <div class="presets-section">
     <h2>Presets</h2>
     <div class="preset-chips" id="presetChips"></div>
@@ -698,6 +705,7 @@
       connectBtn.textContent = 'Disconnect';
       Object.values(sliders).forEach(s => s.disabled = false);
       setJoystickEnabled(true);
+      trackBtn.disabled = false;
       renderSequences();
       setTimeout(() => {
         send('T' + sliders.T.value);
@@ -716,6 +724,7 @@
       if (port) { await port.close(); }
     } catch (err) { console.error(err); }
     connected = false;
+    stopTracking();
     writer = null; port = null;
     dot.classList.remove('connected');
     statusText.textContent = 'Not connected';
@@ -992,6 +1001,119 @@
     resetJoystickVisual();
   });
 
+  // ---- body tracking: webcam -> turret/shoulder/elbow ----
+  // MediaPipe Pose runs in the browser (model + wasm load from CDN on first use).
+  // Follows one arm: upper-arm elevation -> shoulder, elbow bend -> elbow,
+  // wrist sideways offset -> turret. The claw stays on the space bar.
+  const TRACK_ARM = 'right';                             // which of YOUR arms to follow: 'left' | 'right'
+  const TRACK_INVERT = { T: false, S: false, E: false }; // flip a joint if the arm moves the wrong way
+  const TRACK_SMOOTH = 0.3;                              // share of the gap to the target closed per frame (lower = smoother, laggier)
+  const MP_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2';
+  const POSE_MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
+  const TRACK_HINT = 'Stand back so your whole arm is in frame. Joint speed is capped by the jog-speed slider. STOP ends tracking.';
+
+  // <armToJoints>
+  // Image-plane arm pose -> raw joint angles. sh/el/wr are {x,y} in 0..1 image coords
+  // (y down); aspect = video width/height so a non-square frame doesn't skew the angles.
+  function armToJoints(sh, el, wr, aspect) {
+    const vec = (a, b) => ({ x: (b.x - a.x) * aspect, y: b.y - a.y });
+    const len = (p) => Math.hypot(p.x, p.y);
+    const deg = (r) => r * 180 / Math.PI;
+    const clamp1 = (v) => Math.max(-1, Math.min(1, v));
+    const upper = vec(sh, el), fore = vec(el, wr);
+    // shoulder: upper-arm elevation. 0 = hanging down, 90 = horizontal, 180 = straight up
+    const S = deg(Math.atan2(Math.abs(upper.x), upper.y));
+    // elbow: interior angle between upper arm and forearm. 180 = straight, small = folded
+    const E = deg(Math.acos(clamp1(-(upper.x * fore.x + upper.y * fore.y) / (len(upper) * len(fore)))));
+    // turret: wrist sideways offset from shoulder as a fraction of arm reach.
+    // Mirror-view convention: wrist toward the right of the screen = higher angle.
+    const T = 90 + 90 * clamp1(-(wr.x - sh.x) * aspect / (len(upper) + len(fore)));
+    return { T, S, E };
+  }
+  // </armToJoints>
+
+  let trackingOn = false, poseLandmarker = null, trackStream = null;
+  let trackLastVideoTime = -1, trackLastFrame = null;
+  const trackCur = {};
+  const trackVideo = document.getElementById('trackVideo');
+  const trackBtn = document.getElementById('trackBtn');
+  const trackMsg = document.getElementById('trackMsg');
+  trackMsg.textContent = 'Connect first, then start. ' + TRACK_HINT;
+
+  async function startTracking() {
+    if (!connected || trackingOn) return;
+    const myEpoch = motionEpoch;
+    trackBtn.disabled = true;
+    try {
+      trackMsg.textContent = 'Loading pose model…';
+      if (!poseLandmarker) {
+        const { PoseLandmarker, FilesetResolver } = await import(MP_BASE + '/vision_bundle.mjs');
+        poseLandmarker = await PoseLandmarker.createFromOptions(
+          await FilesetResolver.forVisionTasks(MP_BASE + '/wasm'),
+          { baseOptions: { modelAssetPath: POSE_MODEL }, runningMode: 'VIDEO', numPoses: 1 });
+      }
+      trackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      trackVideo.srcObject = trackStream;
+      await trackVideo.play();
+    } catch (err) {
+      console.error('[tracking] start failed', err);
+      stopTracking();
+      trackMsg.textContent = 'Tracking failed: ' + (err.message || err);
+      return;
+    }
+    if (!connected || myEpoch !== motionEpoch) { stopTracking(); return; } // disconnected / STOP hit while loading
+    ['T', 'S', 'E'].forEach(k => trackCur[k] = parseInt(sliders[k].value, 10)); // start from where the arm is
+    trackLastVideoTime = -1;
+    trackLastFrame = null;
+    trackingOn = true;
+    trackVideo.style.display = 'block';
+    trackBtn.textContent = 'Stop tracking';
+    trackBtn.disabled = false;
+    trackMsg.textContent = TRACK_HINT;
+    requestAnimationFrame(trackFrame);
+  }
+
+  function stopTracking() {
+    trackingOn = false;
+    if (trackStream) trackStream.getTracks().forEach(t => t.stop());
+    trackStream = null;
+    trackVideo.srcObject = null;
+    trackVideo.style.display = 'none';
+    trackBtn.textContent = 'Track my arm';
+    trackBtn.disabled = !connected;
+    trackMsg.textContent = connected ? TRACK_HINT : 'Connect first, then start. ' + TRACK_HINT;
+  }
+
+  function trackFrame(now) {
+    if (!trackingOn) return;
+    requestAnimationFrame(trackFrame);
+    if (trackVideo.currentTime === trackLastVideoTime) return; // no new camera frame yet
+    trackLastVideoTime = trackVideo.currentTime;
+    const dt = trackLastFrame == null ? 0 : Math.min(0.1, (now - trackLastFrame) / 1000);
+    trackLastFrame = now;
+
+    const lm = poseLandmarker.detectForVideo(trackVideo, now).landmarks[0];
+    const pts = lm && (TRACK_ARM === 'right' ? [12, 14, 16] : [11, 13, 15]).map(i => lm[i]);
+    if (!pts || pts.some(p => p.visibility < 0.5)) {
+      trackMsg.textContent = 'Arm not fully visible — holding position.';
+      return;
+    }
+    trackMsg.textContent = TRACK_HINT;
+
+    const raw = armToJoints(pts[0], pts[1], pts[2], trackVideo.videoWidth / trackVideo.videoHeight);
+    const maxStep = JOG_SPEED * dt; // jog-speed slider doubles as a speed limit, so the arm never snaps
+    for (const k of ['T', 'S', 'E']) {
+      const [lo, hi] = LIMITS[k];
+      let target = Math.max(lo, Math.min(hi, raw[k]));
+      if (TRACK_INVERT[k]) target = lo + hi - target;
+      trackCur[k] += Math.max(-maxStep, Math.min(maxStep, TRACK_SMOOTH * (target - trackCur[k])));
+      setJoint(k, trackCur[k], { silent: true });
+    }
+    send('M' + sliders.T.value + ',' + sliders.S.value + ',' + sliders.E.value);
+  }
+
+  trackBtn.addEventListener('click', () => { trackingOn ? stopTracking() : startTracking(); });
+
   let motionEpoch = 0; // bumped by stopAllMotion() to abort any in-flight animation
 
   function animateJointsTo(target, duration) {
@@ -1014,6 +1136,7 @@
 
   function stopAllMotion() {
     motionEpoch++;          // aborts any running animateJointsTo (presets/hotkeys/sequences)
+    stopTracking();         // ends webcam arm tracking
     stopRequested = true;   // breaks the sequence playback loop between steps
     joystickActive = false; // stops the joystick loop
     turretKeysHeld.clear(); // stops the A/D turret jog loop
