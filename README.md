@@ -83,9 +83,8 @@ plugged into.
 
 - Vercel project: `robotic-arm-control` (team `jajaphet02-8025`)
 - Static site, no build step. `vercel.json` rewrites `/` to `arm_control.html`.
-- The Vercel project is linked to this repo, so pushes redeploy automatically.
-  Production currently points at the `arm-tracking` branch; once it's merged,
-  pushes to `main` become the production deploy.
+- The Vercel project is linked to this repo. Pushes to `main` redeploy the
+  production site automatically; other branches get their own preview URLs.
 
 If double-clicking the HTML file doesn't allow it to connect (some Chrome
 versions restrict Web Serial on `file://` pages), serve it locally instead:
