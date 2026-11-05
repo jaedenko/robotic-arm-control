@@ -63,14 +63,21 @@ supported in Firefox/Safari). Features:
 - Sequences: chain poses together with per-step move duration and repeat/loop,
   editable after saving
 - Export/import of poses & sequences as a JSON backup file
+- **Simulator**: press **Simulator** in the header to try everything with no arm
+  or Arduino. A virtual arm (with a claw) follows the same text commands the
+  real one would, at servo-like speed, and the serial monitor shows each line the
+  Arduino would receive. It applies the same joint limits as the firmware.
+  Great for testing tracking, poses and sequences. Works in any browser
 - **Follow my arm** (body tracking): "Start tracking" uses your webcam (MediaPipe
   Pose, runs in the browser; video never leaves it) to drive the arm. Upper-arm
-  elevation → shoulder, elbow bend → elbow, wrist sideways offset → turret. A
-  live camera preview with an arm overlay sits under the arm view. Speed is
-  capped by the Speed slider. Pick which arm to follow and flip any joint that
-  moves the wrong way right in the card; the choices are remembered in your
-  browser. The claw stays on the space bar. `node tracking_check.js`
-  sanity-checks the angle math.
+  elevation → shoulder, elbow bend → elbow, wrist sideways offset → turret.
+  **Open hand → claw opens, fist → claw closes** (needs a few steady frames, so a
+  flicker won't toggle it; turn it off with the checkbox to keep the claw on the
+  space bar). A live camera preview with an arm and hand overlay sits under the
+  arm view. Speed is capped by the Speed slider. Pick which arm to follow and flip
+  any joint that moves the wrong way right in the card; the choices are remembered
+  in your browser. `node tracking_check.js` sanity-checks the angle math, the
+  hand open/closed test, and the simulator's command parser.
 - **STOP** (or **Esc**) instantly halts any running animation, sequence, jog, or
   tracking
 
