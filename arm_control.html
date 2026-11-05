@@ -124,7 +124,7 @@
   body:not(.is-connected) .needs-conn { opacity: 0.45; pointer-events: none; }
 
   /* ---- arm view (the one loud thing) ---- */
-  .stage { position: relative; border: 1px solid var(--line); border-radius: 8px; background: var(--plate); overflow: hidden; }
+  .stage { border: 1px solid var(--line); border-radius: 8px; background: var(--plate); overflow: hidden; }
   .stage svg { display: block; width: 100%; height: auto; }
   #diagram { border-bottom: 1px solid var(--line); }
   .grid-line { stroke: var(--grid); stroke-width: 1; fill: none; }
@@ -210,8 +210,8 @@
   .speed-reset-btn { padding: 6px 10px; font-size: 13px; color: var(--dim); }
 
   /* ---- tracking ---- */
-  .cam-wrap { padding: 12px; border-top: 1px solid var(--line); }
-  .cam { position: relative; max-width: 320px; margin: 0 auto; border-radius: 6px; overflow: hidden; background: #000; transform: scaleX(-1); }
+  .cam-wrap { margin-bottom: 12px; }
+  .cam { position: relative; width: 100%; border-radius: 6px; overflow: hidden; background: #000; transform: scaleX(-1); }
   .cam video { display: block; width: 100%; }
   .cam canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   .track-status { margin: 10px 0 0; font-size: 14px; color: var(--dim); min-height: 21px; }
@@ -292,7 +292,7 @@
   .serial-mon { display: none; padding: 10px 14px; border-top: 1px solid var(--line); }
   body.is-sim .serial-mon { display: block; }
   .serial-mon pre {
-    margin: 8px 0 0; height: 110px; overflow: auto;
+    margin: 8px 0 0; height: 84px; overflow: auto;
     font: 12px/1.5 ui-monospace, 'SF Mono', Consolas, Menlo, monospace; color: var(--dim);
   }
   footer { max-width: 1180px; margin: 0 auto; padding: 18px 20px 48px; color: var(--dim); font-size: 14px; }
@@ -386,12 +386,6 @@
         <summary>Serial monitor: what the Arduino receives</summary>
         <pre id="serialLog"></pre>
       </details>
-      <div class="cam-wrap" id="camWrap" hidden>
-        <div class="cam" id="cam" hidden>
-          <video id="trackVideo" playsinline muted></video>
-          <canvas id="trackCanvas"></canvas>
-        </div>
-      </div>
     </section>
 
     <div class="controls">
@@ -488,6 +482,12 @@
       <section class="sec needs-conn">
         <h2>Follow my arm</h2>
         <p class="sub">Your webcam tracks one of your arms and the robot copies it. Open or close your hand to open or close the claw. Video stays in your browser.</p>
+        <div class="cam-wrap" id="camWrap" hidden>
+          <div class="cam" id="cam" hidden>
+            <video id="trackVideo" playsinline muted></video>
+            <canvas id="trackCanvas"></canvas>
+          </div>
+        </div>
         <button id="trackBtn" class="primary" disabled>Start tracking</button>
         <p class="track-status" id="trackMsg"></p>
         <p class="track-status" id="trackHand"></p>
