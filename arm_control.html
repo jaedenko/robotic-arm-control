@@ -2,591 +2,550 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0e1726">
 <title>Arm Control</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M6 26 L14 12 L26 8' fill='none' stroke='%23ff8a3d' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='14' cy='12' r='3' fill='%23e7edf6'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #14171a;
-    --panel: #1c2024;
-    --line: #2a2f34;
-    --text: #e8eaed;
-    --dim: #8b939b;
-    --accent: #4fd1a5;
-    --warn: #e0a94f;
-    --danger: #d97070;
-    --mono: 'SF Mono', 'Consolas', 'Menlo', monospace;
+    --ink: #0e1726;        /* page */
+    --plate: #152238;      /* raised surface */
+    --plate2: #1b2c48;     /* buttons, keys */
+    --line: #2a3b58;
+    --grid: #1a2940;
+    --paper: #e7edf6;
+    --dim: #8fa1bd;
+    --signal: #ff8a3d;     /* servo-lead orange: primary action, live values */
+    --signal-ink: #1d0e03;
+    --stop: #ef4f4c;
+    --live: #5fd39a;
+    --sans: 'Barlow', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --cond: 'Barlow Semi Condensed', 'Barlow', system-ui, sans-serif;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { color-scheme: dark; }
   body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--mono);
     margin: 0;
-    padding: 32px 20px 80px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    background: var(--ink);
+    color: var(--paper);
+    font: 400 15px/1.5 var(--sans);
+    -webkit-font-smoothing: antialiased;
   }
-  .wrap { width: 100%; max-width: 520px; }
-  h1 {
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--dim);
-    margin: 0 0 24px;
-  }
-  h2 {
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--dim);
-    margin: 0 0 10px;
-  }
-  .status-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-  }
-  .status {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: var(--dim);
-  }
-  .dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: #555;
-    transition: background 0.2s;
-  }
-  .dot.connected { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
-  .status-buttons { display: flex; gap: 8px; }
-  .stop-all-btn {
-    background: var(--danger);
-    border-color: var(--danger);
-    color: #1a1a1a;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-  }
-  .stop-all-btn:hover:not(:disabled) { filter: brightness(1.1); border-color: var(--danger); }
+
+  /* ---- buttons & fields ---- */
   button {
-    font-family: var(--mono);
-    background: var(--panel);
+    font: 500 14px/1 var(--sans);
+    background: var(--plate2);
     border: 1px solid var(--line);
-    color: var(--text);
-    padding: 9px 16px;
+    color: var(--paper);
+    padding: 9px 14px;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 13px;
-    transition: border-color 0.15s, background 0.15s;
+    transition: border-color 0.12s, background 0.12s;
   }
-  button:hover:not(:disabled) { border-color: var(--accent); }
-  button:disabled { opacity: 0.35; cursor: default; }
-  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-  /* ---- diagram ---- */
-  .diagram-panel {
-    background: var(--panel);
+  button:hover:not(:disabled) { border-color: var(--signal); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  :focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+  .primary { background: var(--signal); border-color: var(--signal); color: var(--signal-ink); font-weight: 600; }
+  .primary:hover:not(:disabled) { background: #ff9c5b; border-color: #ff9c5b; }
+  body.is-connected #connectBtn { background: var(--plate2); border-color: var(--line); color: var(--paper); font-weight: 500; }
+  .stop-all-btn {
+    background: var(--stop); border-color: var(--stop); color: #fff;
+    font: 700 16px/1 var(--cond); letter-spacing: 0.06em; padding: 9px 22px;
+  }
+  .stop-all-btn:hover:not(:disabled) { background: #ff6360; border-color: #ff6360; }
+  select, input[type=text], input[type=number] {
+    font: 400 14px var(--sans);
+    background: var(--ink);
     border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 14px;
-    margin-bottom: 16px;
-    display: flex;
-    gap: 12px;
-    align-items: center;
-  }
-  .diagram-panel svg { flex-shrink: 0; }
-  .readout { font-size: 12px; color: var(--dim); line-height: 1.9; }
-  .readout b { color: var(--text); font-weight: 600; }
-
-  /* ---- presets ---- */
-  .presets-section {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 16px 18px;
-    margin-bottom: 16px;
-  }
-  .preset-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 14px;
-  }
-  .preset-chip {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--bg);
-    border: 1px solid var(--line);
+    color: var(--paper);
     border-radius: 6px;
     padding: 8px 10px;
-    font-size: 13px;
   }
-  .preset-chip.home { border-color: var(--accent); color: var(--accent); }
-  .preset-chip .chip-btn {
-    background: none; border: none; padding: 0; color: inherit;
-    font-family: var(--mono); font-size: 13px; cursor: pointer;
-  }
-  .preset-chip .hotkey {
-    font-size: 10px;
-    color: var(--dim);
-    background: var(--panel);
+  kbd {
+    font: 500 12px var(--sans);
+    background: var(--plate2);
     border: 1px solid var(--line);
-    border-radius: 3px;
-    padding: 1px 5px;
-  }
-  .preset-chip .claw-tag {
-    font-size: 10px;
-    border-radius: 3px;
+    border-bottom-width: 2px;
+    border-radius: 4px;
     padding: 1px 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    color: var(--paper);
   }
-  .preset-chip .claw-tag.open { color: var(--accent); background: rgba(79, 209, 165, 0.12); }
-  .preset-chip .claw-tag.closed { color: var(--warn); background: rgba(224, 169, 79, 0.12); }
-  .preset-chip .del {
-    background: none; border: none; color: var(--danger);
-    cursor: pointer; font-size: 14px; padding: 0 0 0 4px; line-height: 1;
-  }
-  .no-presets { color: var(--dim); font-size: 12px; font-style: italic; }
+  details > summary { cursor: pointer; color: var(--dim); font-size: 14px; }
+  details > summary:hover { color: var(--paper); }
 
-  .add-preset {
-    border-top: 1px solid var(--line);
-    padding-top: 14px;
-    display: flex;
-    gap: 8px;
-    align-items: center;
+  /* ---- top bar ---- */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap;
+    padding: 10px 20px;
+    background: rgba(14, 23, 38, 0.93);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
   }
-  .add-preset input[type=text] {
-    font-family: var(--mono);
-    background: var(--bg);
-    border: 1px solid var(--line);
-    color: var(--text);
-    border-radius: 6px;
-    padding: 8px 10px;
-    font-size: 13px;
-  }
-  .add-preset .name-input { flex: 1; }
-  .add-preset .hotkey-input {
-    width: 42px;
-    text-align: center;
-    text-transform: uppercase;
-  }
-  .add-preset .hotkey-input:focus { outline: 1px solid var(--accent); }
-  .add-preset label { font-size: 11px; color: var(--dim); }
-  .add-preset .hk-group { display: flex; align-items: center; gap: 5px; }
-  .save-msg { font-size: 11px; color: var(--danger); margin-top: 6px; min-height: 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; font: 600 21px/1 var(--cond); margin-right: auto; }
+  .status { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 14px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #4b5b78; transition: background 0.2s; }
+  .dot.connected { background: var(--live); box-shadow: 0 0 0 4px rgba(95, 211, 154, 0.18); }
+  .top-actions { display: flex; gap: 8px; }
 
-  /* ---- sequences ---- */
-  .sequences-section {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 16px 18px;
-    margin-bottom: 16px;
+  /* ---- page ---- */
+  main { max-width: 1180px; margin: 0 auto; padding: 20px; }
+  .banner {
+    padding: 12px 16px; margin-bottom: 20px;
+    border: 1px solid var(--stop); border-radius: 6px; background: rgba(239, 79, 76, 0.1);
   }
-  .seq-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
-  .no-seqs { color: var(--dim); font-size: 12px; font-style: italic; }
-  .seq-card {
-    background: var(--bg);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 10px 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
+  .welcome {
+    display: grid; gap: 14px;
+    padding: 18px 20px; margin-bottom: 24px;
+    background: var(--plate);
+    border: 1px solid var(--line); border-left: 4px solid var(--signal); border-radius: 6px;
   }
-  .seq-card.playing { border-color: var(--accent); }
-  .seq-info { display: flex; flex-direction: column; gap: 2px; }
-  .seq-name { font-size: 13px; font-weight: 600; }
-  .seq-meta { font-size: 11px; color: var(--dim); }
-  .seq-actions { display: flex; gap: 6px; flex-shrink: 0; }
-  .seq-actions .play-btn { border-color: var(--accent); color: var(--accent); }
-  .seq-actions .stop-btn { border-color: var(--danger); color: var(--danger); }
-  .seq-actions .del { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 15px; padding: 0 4px; }
+  body.is-connected .welcome { display: none; }
+  .welcome h1 { margin: 0; font: 600 24px/1.2 var(--cond); }
+  .welcome ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; counter-reset: step; }
+  .welcome li { counter-increment: step; display: flex; gap: 10px; align-items: baseline; }
+  .welcome li::before {
+    content: counter(step); flex: none; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--signal); color: var(--signal-ink); font: 700 13px/22px var(--cond); text-align: center;
+  }
+  .welcome .note { margin: 0; color: var(--dim); font-size: 14px; }
+  @media (min-width: 760px) { .welcome ol { grid-template-columns: repeat(3, 1fr); } }
 
-  .build-box { border-top: 1px solid var(--line); padding-top: 14px; }
-  .build-row { display: flex; gap: 8px; margin-bottom: 10px; }
-  .build-row select, .build-row input[type=text] {
-    font-family: var(--mono);
-    background: var(--bg);
-    border: 1px solid var(--line);
-    color: var(--text);
-    border-radius: 6px;
-    padding: 8px 10px;
-    font-size: 13px;
+  .cols { display: grid; gap: 24px; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 980px) {
+    .cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 40px; }
+    .stage { position: sticky; top: 84px; max-height: calc(100vh - 104px); overflow-y: auto; }
   }
-  .build-row select { flex: 1; }
-  .build-steps { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-  .build-step {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--bg);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 6px 8px;
-    font-size: 12px;
-  }
-  .build-step .step-num { color: var(--dim); width: 16px; text-align: right; }
-  .build-step .step-name { flex: 1; }
-  .build-step .step-claw {
-    font-size: 10px; text-transform: uppercase; padding: 1px 5px; border-radius: 3px;
-  }
-  .build-step .step-claw.open { color: var(--accent); background: rgba(79, 209, 165, 0.12); }
-  .build-step .step-claw.closed { color: var(--warn); background: rgba(224, 169, 79, 0.12); }
-  .build-step .hold-input {
-    width: 56px; font-family: var(--mono); background: var(--panel);
-    border: 1px solid var(--line); color: var(--text); border-radius: 4px;
-    padding: 4px 6px; font-size: 11px;
-  }
-  .build-step button { padding: 3px 7px; font-size: 11px; min-width: auto; }
-  .build-step .remove-step { color: var(--danger); }
-  .no-steps { color: var(--dim); font-size: 12px; font-style: italic; }
+  body:not(.is-connected) .needs-conn { opacity: 0.45; pointer-events: none; }
 
-  .save-seq-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .save-seq-row input[type=text] { flex: 1; min-width: 140px; }
-  .save-seq-row input[type=number] {
-    width: 56px; font-family: var(--mono); background: var(--bg);
-    border: 1px solid var(--line); color: var(--text); border-radius: 6px;
-    padding: 8px 6px; font-size: 13px; text-align: center;
-  }
-  .save-seq-row label { font-size: 11px; color: var(--dim); display: flex; align-items: center; gap: 4px; }
+  /* ---- arm view (the one loud thing) ---- */
+  .stage { border: 1px solid var(--line); border-radius: 8px; background: var(--plate); overflow: hidden; }
+  .stage svg { display: block; width: 100%; height: auto; }
+  #diagram { border-bottom: 1px solid var(--line); }
+  .grid-line { stroke: var(--grid); stroke-width: 1; fill: none; }
+  .d-ground { stroke: var(--dim); stroke-width: 2; }
+  .d-base { fill: var(--plate2); stroke: var(--dim); stroke-width: 2; }
+  .d-link1 { stroke: var(--paper); stroke-width: 9; stroke-linecap: round; }
+  .d-link2 { stroke: var(--signal); stroke-width: 9; stroke-linecap: round; }
+  .d-joint { fill: var(--ink); stroke: var(--paper); stroke-width: 3; }
+  .d-hand { fill: var(--signal); stroke: var(--ink); stroke-width: 2; }
+  .d-label { font: 600 14px var(--cond); fill: var(--dim); }
+  .d-tick { stroke: var(--dim); stroke-width: 1.5; }
+  .d-dial { fill: none; stroke: var(--line); stroke-width: 2; }
+  .d-needle { stroke: var(--signal); stroke-width: 3; stroke-linecap: round; }
+  .stage-bottom { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; }
+  .readouts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 16px; margin: 0; padding: 16px; }
+  .readouts dt { color: var(--dim); font-size: 13px; }
+  .readouts dd { margin: 0; font: 600 32px/1.05 var(--cond); font-variant-numeric: tabular-nums; }
+  .readouts dd small { font-size: 16px; font-weight: 500; color: var(--dim); }
+  .readouts #rG { font-size: 26px; }
 
-  .backup-section {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 16px 18px;
-    margin-bottom: 16px;
-  }
-  .backup-row { display: flex; gap: 8px; }
+  /* ---- control column ---- */
+  .sec { padding: 22px 0; border-top: 1px solid var(--line); }
+  .controls > .sec:first-child { border-top: 0; padding-top: 0; }
+  .sec h2 { margin: 0 0 4px; font: 600 21px/1.2 var(--cond); }
+  .sec .sub { margin: 0 0 14px; color: var(--dim); font-size: 14px; }
 
-
-  /* ---- joints ---- */
-  .joint {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 16px 18px;
-    margin-bottom: 12px;
-  }
-  .joint-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 12px;
-  }
-  .joint-name {
-    font-size: 13px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--dim);
-  }
-  .joint-val {
-    font-size: 22px;
-    font-weight: 600;
-    color: var(--accent);
-    font-variant-numeric: tabular-nums;
-  }
-  .joint-val span { font-size: 13px; color: var(--dim); font-weight: 400; }
-
+  .joint { padding: 12px 0; }
+  .joint + .joint { border-top: 1px dashed var(--line); }
+  .joint-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .joint-name { font: 500 16px var(--sans); }
+  .joint-val { font: 600 28px/1 var(--cond); color: var(--signal); font-variant-numeric: tabular-nums; }
+  .joint-val span { font-size: 15px; color: var(--dim); font-weight: 500; }
   input[type=range] {
-    -webkit-appearance: none;
-    width: 100%;
-    height: 4px;
-    background: var(--line);
-    border-radius: 2px;
-    outline: none;
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 6px; margin: 12px 0 6px;
+    background: var(--line); border-radius: 3px; outline-offset: 8px;
   }
   input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 18px; height: 18px;
-    border-radius: 50%;
-    background: var(--accent);
-    cursor: pointer;
-    border: 3px solid var(--bg);
-    box-shadow: 0 0 0 1px var(--accent);
+    -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--signal); border: 3px solid var(--ink); box-shadow: 0 0 0 1px var(--signal); cursor: pointer;
   }
   input[type=range]::-moz-range-thumb {
-    width: 18px; height: 18px;
-    border-radius: 50%;
-    background: var(--accent);
-    cursor: pointer;
-    border: 3px solid var(--bg);
-    box-shadow: 0 0 0 1px var(--accent);
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--signal); border: 3px solid var(--ink); box-shadow: 0 0 0 1px var(--signal); cursor: pointer;
   }
-  input[type=range]:disabled { opacity: 0.35; }
+  input[type=range]:disabled { opacity: 0.4; }
+  .range-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); }
+  .nudges { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .nudges button { padding: 7px 10px; font-size: 13px; min-width: 42px; }
+  .nudges .reset-btn { margin-left: auto; color: var(--dim); }
 
-  .range-labels {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11px;
-    color: var(--dim);
-    margin-top: 6px;
-  }
+  .claw { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 14px; border-top: 1px dashed var(--line); }
+  .claw-state { font: 600 26px/1 var(--cond); }
+  .claw-state.open { color: var(--live); }
+  .claw-state.closed { color: var(--signal); }
+  .claw-hint { margin-top: 4px; font-size: 13px; color: var(--dim); }
+  .claw-buttons { display: flex; gap: 6px; }
 
-  .nudges { display: flex; gap: 4px; margin-top: 10px; }
-  .nudges button { padding: 6px 8px; font-size: 11px; min-width: 34px; }
-  .nudges .reset-btn { color: var(--dim); margin-left: 4px; }
-
-  /* ---- claw ---- */
-  .claw {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .claw-state { font-size: 20px; font-weight: 600; letter-spacing: 0.02em; margin-bottom: 4px; }
-  .claw-state.open { color: var(--accent); }
-  .claw-state.closed { color: var(--warn); }
-  .claw-hint { font-size: 12px; color: var(--dim); }
-  kbd {
-    background: var(--bg);
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    padding: 2px 7px;
-    font-size: 11px;
-  }
-  .claw-buttons { display: flex; gap: 8px; }
-
-  /* ---- joystick ---- */
-  .joystick-panel {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 16px 18px;
-    margin-bottom: 16px;
-  }
-  .joystick-row { display: flex; justify-content: center; margin-bottom: 10px; }
-  .joystick-wrap {
-    position: relative;
-    width: 190px;
-    height: 190px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
+  /* ---- jog ---- */
+  .jog-body { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+  .joystick-wrap { position: relative; width: 190px; height: 190px; display: flex; align-items: center; justify-content: center; flex: none; }
   .joystick-base {
-    width: 140px;
-    height: 140px;
-    border-radius: 50%;
-    background: var(--bg);
-    border: 1px solid var(--line);
-    position: relative;
-    touch-action: none;
-    cursor: grab;
+    width: 140px; height: 140px; border-radius: 50%;
+    background: var(--ink); border: 1px solid var(--line);
+    position: relative; touch-action: none; cursor: grab;
   }
   .joystick-base.disabled { opacity: 0.35; pointer-events: none; cursor: default; }
   .joystick-base:active { cursor: grabbing; }
   .joystick-knob {
-    width: 46px;
-    height: 46px;
-    border-radius: 50%;
-    background: var(--accent);
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    box-shadow: 0 0 10px rgba(79, 209, 165, 0.4);
-    pointer-events: none;
+    width: 46px; height: 46px; border-radius: 50%; background: var(--signal);
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    box-shadow: 0 0 12px rgba(255, 138, 61, 0.4); pointer-events: none;
   }
-  .jl {
-    position: absolute;
-    font-size: 10px;
-    color: var(--dim);
-    letter-spacing: 0.03em;
-    white-space: nowrap;
-    pointer-events: none;
-  }
+  .jl { position: absolute; font-size: 12px; color: var(--dim); white-space: nowrap; pointer-events: none; }
   .jl-top { top: 0; left: 50%; transform: translateX(-50%); }
   .jl-bottom { bottom: 0; left: 50%; transform: translateX(-50%); }
-  .jl-left { left: 0; top: 50%; transform: translateY(-50%); }
-  .jl-right { right: 0; top: 50%; transform: translateY(-50%); }
-  .joystick-hint { text-align: center; font-size: 11px; color: var(--dim); }
-  .speed-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 12px;
-    font-size: 11px;
-    color: var(--dim);
+  .keys { flex: 1; min-width: 180px; margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 14px; }
+  .keys li { display: flex; align-items: center; gap: 8px; color: var(--dim); }
+  .keys li span { color: var(--paper); }
+  .speed-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 14px; color: var(--dim); }
+  .speed-row input[type=range] { flex: 1; margin: 0; }
+  .speed-row .num { min-width: 70px; text-align: right; color: var(--paper); font-variant-numeric: tabular-nums; }
+  .speed-reset-btn { padding: 6px 10px; font-size: 13px; color: var(--dim); }
+
+  /* ---- tracking ---- */
+  .cam-wrap { padding: 12px; border-top: 1px solid var(--line); }
+  .cam { position: relative; max-width: 320px; margin: 0 auto; border-radius: 6px; overflow: hidden; background: #000; transform: scaleX(-1); }
+  .cam video { display: block; width: 100%; }
+  .cam canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .track-status { margin: 10px 0 0; font-size: 14px; color: var(--dim); min-height: 21px; }
+  .track-opts { display: flex; gap: 8px 16px; align-items: center; flex-wrap: wrap; margin-top: 14px; font-size: 14px; }
+  .track-opts label { display: flex; align-items: center; gap: 6px; }
+  .flip-row { display: flex; gap: 8px 16px; flex-wrap: wrap; margin-top: 8px; font-size: 14px; }
+  .flip-row label { display: flex; align-items: center; gap: 6px; }
+
+  /* ---- saved poses & sequences ---- */
+  .lower { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--line); display: grid; gap: 24px 40px; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 980px) { .lower { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+  .lower .sec { padding: 0; border-top: 0; }
+  .preset-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .preset-chip {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--plate); border: 1px solid var(--line); border-radius: 6px;
+    padding: 4px 10px; font-size: 14px;
   }
-  .speed-row label { white-space: nowrap; }
-  .speed-row input[type=range] { flex: 1; }
-  .speed-row span { min-width: 30px; text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
-  .speed-reset-btn { padding: 4px 8px; font-size: 10px; min-width: auto; color: var(--dim); }
+  .preset-chip.home { border-color: var(--signal); }
+  .preset-chip .chip-btn { background: none; border: none; padding: 5px 2px; color: inherit; font: 500 14px var(--sans); }
+  .preset-chip .hotkey { font-size: 11px; color: var(--dim); border: 1px solid var(--line); border-radius: 3px; padding: 0 5px; }
+  .claw-tag { font-size: 12px; border-radius: 3px; padding: 0 6px; }
+  .claw-tag.open { color: var(--live); background: rgba(95, 211, 154, 0.12); }
+  .claw-tag.closed { color: var(--signal); background: rgba(255, 138, 61, 0.14); }
+  .preset-chip .del { background: none; border: none; color: var(--stop); padding: 0 2px 0 4px; font-size: 18px; line-height: 1; }
+  .no-presets, .no-seqs, .no-steps { color: var(--dim); font-size: 14px; }
+  .add-preset { border-top: 1px dashed var(--line); padding-top: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .add-preset .name-input { flex: 1; min-width: 150px; }
+  .hk-group { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dim); }
+  .hotkey-input { width: 44px; text-align: center; text-transform: uppercase; }
+  .save-msg { font-size: 13px; color: var(--stop); min-height: 18px; margin-top: 6px; }
+
+  .seq-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .seq-card {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--plate); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px;
+  }
+  .seq-card.playing { border-color: var(--signal); }
+  .seq-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .seq-name { font-weight: 600; }
+  .seq-meta { font-size: 13px; color: var(--dim); }
+  .seq-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .seq-actions .play-btn { border-color: var(--signal); color: var(--signal); }
+  .seq-actions .stop-btn { border-color: var(--stop); color: var(--stop); }
+  .seq-actions .del { background: none; border: none; color: var(--stop); font-size: 18px; padding: 0 6px; }
+  .build-details { border-top: 1px dashed var(--line); padding-top: 12px; }
+  .build-box h3 { margin: 14px 0 10px; font: 600 17px/1.2 var(--cond); }
+  .build-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .build-row select { flex: 1; }
+  .build-steps { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .build-step {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--plate); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 14px;
+  }
+  .build-step .step-num { color: var(--dim); width: 18px; text-align: right; }
+  .build-step .step-name { flex: 1; }
+  .build-step .step-claw { font-size: 12px; padding: 0 6px; border-radius: 3px; }
+  .build-step .step-claw.open { color: var(--live); background: rgba(95, 211, 154, 0.12); }
+  .build-step .step-claw.closed { color: var(--signal); background: rgba(255, 138, 61, 0.14); }
+  .build-step .hold-input { width: 76px; padding: 5px 6px; font-size: 13px; }
+  .build-step button { padding: 5px 9px; font-size: 13px; }
+  .build-step .remove-step { color: var(--stop); }
+  .save-seq-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .save-seq-row input[type=text] { flex: 1; min-width: 150px; }
+  .save-seq-row input[type=number] { width: 62px; text-align: center; }
+  .save-seq-row label { font-size: 13px; color: var(--dim); display: flex; align-items: center; gap: 4px; }
+  .backup-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+  footer { max-width: 1180px; margin: 0 auto; padding: 18px 20px 48px; color: var(--dim); font-size: 14px; }
+  footer a { color: var(--signal); }
+
+  @media (max-width: 640px) {
+    .topbar { padding: 8px 14px; gap: 6px 10px; }
+    .brand { font-size: 19px; gap: 8px; }
+    .brand svg { width: 22px; height: 22px; }
+    .stop-all-btn { padding: 9px 14px; }
+    .status { order: 3; flex-basis: 100%; }
+    main { padding: 14px; }
+    .readouts { padding: 12px; gap: 10px 8px; }
+    .readouts dd { font-size: 28px; }
+  }
+  @media (pointer: coarse) {
+    button { min-height: 44px; }
+    .nudges button, .build-step button { min-height: 40px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>Arm Control</h1>
+<header class="topbar">
+  <div class="brand">
+    <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><path d="M6 26 L14 12 L26 8" fill="none" stroke="#ff8a3d" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="12" r="3" fill="#e7edf6"/></svg>
+    Arm Control
+  </div>
+  <div class="status"><div class="dot" id="dot"></div><span id="statusText">Not connected</span></div>
+  <div class="top-actions">
+    <button id="stopAllBtn" class="stop-all-btn" title="Stop all motion (Esc)">STOP</button>
+    <button id="connectBtn" class="primary">Connect</button>
+  </div>
+</header>
 
-  <div class="status-row">
-    <div class="status"><div class="dot" id="dot"></div><span id="statusText">Not connected</span></div>
-    <div class="status-buttons">
-      <button id="stopAllBtn" class="stop-all-btn">STOP</button>
-      <button id="connectBtn">Connect</button>
-    </div>
+<main>
+  <div class="banner" id="unsupported" hidden>
+    This browser can't talk to the Arduino. Open this page in Chrome or Edge on a computer.
   </div>
 
-  <div class="diagram-panel">
-    <svg id="diagram" width="160" height="180" viewBox="0 0 160 180">
-      <circle cx="130" cy="30" r="22" fill="none" stroke="#2a2f34" stroke-width="1.5"/>
-      <line id="turretNeedle" x1="130" y1="30" x2="130" y2="12" stroke="#4fd1a5" stroke-width="2.5" stroke-linecap="round"/>
-      <circle cx="130" cy="30" r="2.5" fill="#4fd1a5"/>
-      <text x="130" y="60" text-anchor="middle" fill="#8b939b" font-size="9" font-family="monospace">TURRET</text>
+  <section class="welcome" id="welcome">
+    <h1>Connect your arm to get started</h1>
+    <ol>
+      <li>Plug the Arduino into this computer with a USB cable.</li>
+      <li>Press Connect and choose the Arduino's serial port.</li>
+      <li>Move the arm with the sliders, the keyboard, or your own arm in front of the camera.</li>
+    </ol>
+    <p class="note">The controls below unlock once you're connected.</p>
+  </section>
 
-      <line x1="20" y1="160" x2="60" y2="160" stroke="#2a2f34" stroke-width="2"/>
-      <circle cx="30" cy="160" r="4" fill="#2a2f34"/>
-      <line id="link1" x1="30" y1="160" x2="30" y2="80" stroke="#e8eaed" stroke-width="4" stroke-linecap="round"/>
-      <line id="link2" x1="30" y1="80" x2="30" y2="30" stroke="#4fd1a5" stroke-width="4" stroke-linecap="round"/>
-      <circle id="elbowDot" cx="30" cy="80" r="4" fill="#e8eaed"/>
-      <circle id="handDot" cx="30" cy="30" r="5" fill="#4fd1a5"/>
-    </svg>
-    <div class="readout">
-      Turret: <b id="rT">90</b>°<br>
-      Shoulder: <b id="rS">90</b>°<br>
-      Elbow: <b id="rE">90</b>°<br>
-      Claw: <b id="rG">OPEN</b>
-    </div>
-  </div>
-
-  <div class="joystick-panel">
-    <h2>Jog Control</h2>
-    <div class="joystick-row">
-      <div class="joystick-wrap">
-        <span class="jl jl-top">Shoulder ↑</span>
-        <span class="jl jl-bottom">Shoulder ↓</span>
-        <div class="joystick-base" id="joystickBase">
-          <div class="joystick-knob" id="joystickKnob"></div>
+  <div class="cols">
+    <section class="stage" aria-label="Live arm view">
+      <svg id="diagram" viewBox="0 0 340 230" role="img" aria-label="Side view of the arm">
+        <defs>
+          <pattern id="gridPat" width="20" height="20" patternUnits="userSpaceOnUse">
+            <path class="grid-line" d="M20 0H0V20"/>
+          </pattern>
+        </defs>
+        <rect width="340" height="230" fill="url(#gridPat)"/>
+        <line class="d-ground" x1="60" y1="200" x2="280" y2="200"/>
+        <path class="d-base" d="M140 200 L200 200 L192 186 L148 186 Z"/>
+        <line id="link1" class="d-link1" x1="170" y1="186" x2="170" y2="91"/>
+        <line id="link2" class="d-link2" x1="170" y1="91" x2="170" y2="21"/>
+        <circle class="d-joint" cx="170" cy="186" r="7"/>
+        <circle id="elbowDot" class="d-joint" cx="170" cy="91" r="7"/>
+        <circle id="handDot" class="d-hand" cx="170" cy="21" r="6"/>
+        <text id="shLabel" class="d-label" x="170" y="222" text-anchor="middle">Shoulder 90°</text>
+        <text id="elLabel" class="d-label" x="184" y="82">Elbow 90°</text>
+      </svg>
+      <div class="stage-bottom">
+        <svg id="compass" viewBox="0 0 160 104" role="img" aria-label="Turret angle dial">
+          <path class="d-dial" d="M20 88 A60 60 0 0 1 140 88"/>
+          <g id="compassTicks"></g>
+          <line id="turretNeedle" class="d-needle" x1="80" y1="88" x2="80" y2="42"/>
+          <circle cx="80" cy="88" r="5" fill="#e7edf6"/>
+          <text class="d-label" x="20" y="102" text-anchor="middle">0°</text>
+          <text class="d-label" x="80" y="16" text-anchor="middle">90°</text>
+          <text class="d-label" x="140" y="102" text-anchor="middle">180°</text>
+        </svg>
+        <dl class="readouts">
+          <div><dt>Turret</dt><dd><b id="rT">90</b><small>°</small></dd></div>
+          <div><dt>Shoulder</dt><dd><b id="rS">90</b><small>°</small></dd></div>
+          <div><dt>Elbow</dt><dd><b id="rE">90</b><small>°</small></dd></div>
+          <div><dt>Claw</dt><dd><b id="rG">OPEN</b></dd></div>
+        </dl>
+      </div>
+      <div class="cam-wrap" id="camWrap" hidden>
+        <div class="cam" id="cam" hidden>
+          <video id="trackVideo" playsinline muted></video>
+          <canvas id="trackCanvas"></canvas>
         </div>
       </div>
-    </div>
-    <div class="joystick-hint">Drag &amp; hold joystick: shoulder. Hold <kbd>A</kbd>/<kbd>D</kbd>: turret. Hold <kbd>W</kbd>/<kbd>S</kbd>: elbow. All work together.</div>
-    <div class="speed-row">
-      <label for="jogSpeedSlider">Jog speed</label>
-      <input type="range" id="jogSpeedSlider" min="20" max="250" value="120">
-      <span id="jogSpeedVal">120</span>°/s
-      <button id="jogSpeedResetBtn" class="speed-reset-btn">Reset</button>
+    </section>
+
+    <div class="controls">
+      <section class="sec needs-conn">
+        <h2>Move the arm</h2>
+        <p class="sub">Drag a slider, or use the small buttons to nudge by a few degrees.</p>
+
+        <div class="joint">
+          <div class="joint-head">
+            <span class="joint-name">Turret</span>
+            <span class="joint-val"><span id="turretVal">90</span><span>°</span></span>
+          </div>
+          <input type="range" id="turretSlider" min="0" max="180" value="90" disabled aria-label="Turret angle">
+          <div class="range-labels"><span>0</span><span>180</span></div>
+          <div class="nudges">
+            <button data-key="T" data-amt="-5">−5</button>
+            <button data-key="T" data-amt="-1">−1</button>
+            <button data-key="T" data-amt="1">+1</button>
+            <button data-key="T" data-amt="5">+5</button>
+            <button class="reset-btn" data-key="T">Reset to 90</button>
+          </div>
+        </div>
+
+        <div class="joint">
+          <div class="joint-head">
+            <span class="joint-name">Shoulder</span>
+            <span class="joint-val"><span id="shoulderVal">90</span><span>°</span></span>
+          </div>
+          <input type="range" id="shoulderSlider" min="0" max="180" value="90" disabled aria-label="Shoulder angle">
+          <div class="range-labels"><span>0</span><span>180</span></div>
+          <div class="nudges">
+            <button data-key="S" data-amt="-5">−5</button>
+            <button data-key="S" data-amt="-1">−1</button>
+            <button data-key="S" data-amt="1">+1</button>
+            <button data-key="S" data-amt="5">+5</button>
+            <button class="reset-btn" data-key="S">Reset to 90</button>
+          </div>
+        </div>
+
+        <div class="joint">
+          <div class="joint-head">
+            <span class="joint-name">Elbow</span>
+            <span class="joint-val"><span id="elbowVal">90</span><span>°</span></span>
+          </div>
+          <input type="range" id="elbowSlider" min="30" max="175" value="90" disabled aria-label="Elbow angle">
+          <div class="range-labels"><span>30</span><span>175</span></div>
+          <div class="nudges">
+            <button data-key="E" data-amt="-5">−5</button>
+            <button data-key="E" data-amt="-1">−1</button>
+            <button data-key="E" data-amt="1">+1</button>
+            <button data-key="E" data-amt="5">+5</button>
+            <button class="reset-btn" data-key="E">Reset to 90</button>
+          </div>
+        </div>
+
+        <div class="claw">
+          <div>
+            <div class="claw-state open" id="clawState">OPEN</div>
+            <div class="claw-hint">Press <kbd>Space</kbd> to toggle the claw</div>
+          </div>
+          <div class="claw-buttons">
+            <button id="clawOpenBtn">Open</button>
+            <button id="clawCloseBtn">Close</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="sec needs-conn">
+        <h2>Hold to move</h2>
+        <p class="sub">Joystick and keys work at the same time, so you can move several joints at once.</p>
+        <div class="jog-body">
+          <div class="joystick-wrap">
+            <span class="jl jl-top">Shoulder up</span>
+            <span class="jl jl-bottom">Shoulder down</span>
+            <div class="joystick-base" id="joystickBase">
+              <div class="joystick-knob" id="joystickKnob"></div>
+            </div>
+          </div>
+          <ul class="keys">
+            <li><kbd>A</kbd><kbd>D</kbd><span>Turret left / right</span></li>
+            <li><kbd>W</kbd><kbd>S</kbd><span>Elbow up / down</span></li>
+            <li><kbd>H</kbd><span>Go to Home pose</span></li>
+            <li><kbd>Esc</kbd><span>Stop everything</span></li>
+          </ul>
+        </div>
+        <div class="speed-row">
+          <label for="jogSpeedSlider">Speed</label>
+          <input type="range" id="jogSpeedSlider" min="20" max="250" value="120">
+          <span class="num"><span id="jogSpeedVal">120</span>°/s</span>
+          <button id="jogSpeedResetBtn" class="speed-reset-btn">Reset</button>
+        </div>
+      </section>
+
+      <section class="sec needs-conn">
+        <h2>Follow my arm</h2>
+        <p class="sub">Your webcam tracks one of your arms and the robot copies it. Video stays in your browser.</p>
+        <button id="trackBtn" class="primary" disabled>Start tracking</button>
+        <p class="track-status" id="trackMsg"></p>
+        <div class="track-opts">
+          <label>Follow my
+            <select id="trackArm">
+              <option value="right">right</option>
+              <option value="left">left</option>
+            </select>
+            arm
+          </label>
+        </div>
+        <details style="margin-top:10px;">
+          <summary>The arm moves the wrong way</summary>
+          <div class="flip-row">
+            <label><input type="checkbox" id="flipT"> Flip turret</label>
+            <label><input type="checkbox" id="flipS"> Flip shoulder</label>
+            <label><input type="checkbox" id="flipE"> Flip elbow</label>
+          </div>
+        </details>
+      </section>
     </div>
   </div>
 
-  <div class="presets-section">
-    <h2>Presets</h2>
-    <div class="preset-chips" id="presetChips"></div>
-
-    <div class="add-preset">
-      <input type="text" id="presetName" class="name-input" placeholder="Preset name (e.g. Bin A)" maxlength="24">
-      <div class="hk-group">
-        <label>Key</label>
-        <input type="text" id="presetHotkey" class="hotkey-input" maxlength="1">
+  <div class="lower">
+    <section class="sec">
+      <h2>Saved poses</h2>
+      <p class="sub">Move the arm where you want it, give it a name, and save it. A single key can recall it.</p>
+      <div class="preset-chips" id="presetChips"></div>
+      <div class="add-preset">
+        <input type="text" id="presetName" class="name-input" placeholder="Pose name, e.g. Bin A" maxlength="24" aria-label="Pose name">
+        <div class="hk-group">
+          <label for="presetHotkey">Key</label>
+          <input type="text" id="presetHotkey" class="hotkey-input" maxlength="1">
+        </div>
+        <button id="savePresetBtn">Save current pose</button>
       </div>
-      <button id="savePresetBtn">Save Current Pose</button>
-    </div>
-    <div class="save-msg" id="saveMsg"></div>
-  </div>
+      <div class="save-msg" id="saveMsg"></div>
+    </section>
 
-  <div class="sequences-section">
-    <h2>Sequences</h2>
-    <div class="seq-list" id="seqList"></div>
+    <section class="sec">
+      <h2>Sequences</h2>
+      <p class="sub">Chain saved poses into a routine and play it back, once or on a loop.</p>
+      <div class="seq-list" id="seqList"></div>
+      <details class="build-details" id="buildDetails">
+        <summary>Build a sequence</summary>
+        <div class="build-box">
+          <h3 id="buildHeading">New sequence</h3>
+          <div class="build-row">
+            <select id="stepPicker" aria-label="Pose to add"></select>
+            <button id="addStepBtn">Add step</button>
+          </div>
+          <div class="build-steps" id="buildSteps"></div>
+          <div class="save-seq-row">
+            <input type="text" id="seqName" placeholder="Sequence name, e.g. Sort bin A to B" maxlength="30" aria-label="Sequence name">
+            <label>Repeat <input type="number" id="seqRepeat" min="1" max="50" value="1"> times</label>
+            <label><input type="checkbox" id="seqLoopForever"> Loop forever</label>
+            <button id="saveSeqBtn">Save sequence</button>
+            <button id="cancelEditBtn" style="display:none;">Cancel edit</button>
+          </div>
+          <div class="save-msg" id="seqSaveMsg"></div>
+        </div>
+      </details>
+    </section>
 
-    <div class="build-box">
-      <h2 id="buildHeading">Build a Sequence</h2>
-      <div class="build-row">
-        <select id="stepPicker"></select>
-        <button id="addStepBtn">Add Step</button>
+    <section class="sec">
+      <h2>Backup</h2>
+      <p class="sub">Poses and sequences are saved in this browser. Export them to keep a copy or move to another computer.</p>
+      <div class="backup-row">
+        <button id="exportBtn">Export to file</button>
+        <button id="importBtn">Import from file</button>
+        <input type="file" id="importFile" accept="application/json" style="display:none;">
       </div>
-      <div class="build-steps" id="buildSteps"></div>
-
-      <div class="save-seq-row">
-        <input type="text" id="seqName" placeholder="Sequence name (e.g. Sort Bin A→B)" maxlength="30">
-        <label>×<input type="number" id="seqRepeat" min="1" max="50" value="1"></label>
-        <label><input type="checkbox" id="seqLoopForever"> loop forever</label>
-        <button id="saveSeqBtn">Save Sequence</button>
-        <button id="cancelEditBtn" style="display:none;">Cancel Edit</button>
-      </div>
-      <div class="save-msg" id="seqSaveMsg"></div>
-    </div>
+      <div class="save-msg" id="backupMsg"></div>
+    </section>
   </div>
+</main>
 
-  <div class="backup-section">
-    <h2>Backup</h2>
-    <div class="backup-row">
-      <button id="exportBtn">Export presets &amp; sequences</button>
-      <button id="importBtn">Import from file</button>
-      <input type="file" id="importFile" accept="application/json" style="display:none;">
-    </div>
-    <div class="save-msg" id="backupMsg"></div>
-  </div>
-
-  <div class="joint">
-    <div class="joint-head">
-      <span class="joint-name">Turret</span>
-      <span class="joint-val"><span id="turretVal">90</span><span>°</span></span>
-    </div>
-    <input type="range" id="turretSlider" min="0" max="180" value="90" disabled>
-    <div class="range-labels"><span>0</span><span>180</span></div>
-    <div class="nudges">
-      <button data-key="T" data-amt="-5">-5</button>
-      <button data-key="T" data-amt="-1">-1</button>
-      <button data-key="T" data-amt="1">+1</button>
-      <button data-key="T" data-amt="5">+5</button>
-      <button class="reset-btn" data-key="T">Reset</button>
-    </div>
-  </div>
-
-  <div class="joint">
-    <div class="joint-head">
-      <span class="joint-name">Shoulder</span>
-      <span class="joint-val"><span id="shoulderVal">90</span><span>°</span></span>
-    </div>
-    <input type="range" id="shoulderSlider" min="0" max="180" value="90" disabled>
-    <div class="range-labels"><span>0</span><span>180</span></div>
-    <div class="nudges">
-      <button data-key="S" data-amt="-5">-5</button>
-      <button data-key="S" data-amt="-1">-1</button>
-      <button data-key="S" data-amt="1">+1</button>
-      <button data-key="S" data-amt="5">+5</button>
-      <button class="reset-btn" data-key="S">Reset</button>
-    </div>
-  </div>
-
-  <div class="joint">
-    <div class="joint-head">
-      <span class="joint-name">Elbow</span>
-      <span class="joint-val"><span id="elbowVal">90</span><span>°</span></span>
-    </div>
-    <input type="range" id="elbowSlider" min="30" max="175" value="90" disabled>
-    <div class="range-labels"><span>30</span><span>175</span></div>
-    <div class="nudges">
-      <button data-key="E" data-amt="-5">-5</button>
-      <button data-key="E" data-amt="-1">-1</button>
-      <button data-key="E" data-amt="1">+1</button>
-      <button data-key="E" data-amt="5">+5</button>
-      <button class="reset-btn" data-key="E">Reset</button>
-    </div>
-  </div>
-
-  <div class="claw">
-    <div>
-      <div class="claw-state open" id="clawState">OPEN</div>
-      <div class="claw-hint">or press <kbd>space</kbd></div>
-    </div>
-    <div class="claw-buttons">
-      <button id="clawOpenBtn">Open</button>
-      <button id="clawCloseBtn">Close</button>
-    </div>
-  </div>
-</div>
+<footer>
+  Esc or STOP halts all motion. Source and wiring notes on <a href="https://github.com/jaedenko/robotic-arm-control">GitHub</a>.
+</footer>
 
 <script>
   // ============ CONFIG ============
@@ -698,6 +657,8 @@
       connectBtn.textContent = 'Disconnect';
       Object.values(sliders).forEach(s => s.disabled = false);
       setJoystickEnabled(true);
+      trackBtn.disabled = false;
+      document.body.classList.add('is-connected');
       renderSequences();
       setTimeout(() => {
         send('T' + sliders.T.value);
@@ -716,6 +677,8 @@
       if (port) { await port.close(); }
     } catch (err) { console.error(err); }
     connected = false;
+    document.body.classList.remove('is-connected');
+    stopTracking();
     writer = null; port = null;
     dot.classList.remove('connected');
     statusText.textContent = 'Not connected';
@@ -758,8 +721,8 @@
           throw new Error('Missing presets/sequences arrays');
         }
         const ok = confirm(
-          `This will replace your current ${customPresets.length} preset(s) and ${sequences.length} sequence(s) ` +
-          `with ${data.presets.length} preset(s) and ${data.sequences.length} sequence(s) from the file. Continue?`
+          `This will replace your current ${customPresets.length} pose(s) and ${sequences.length} sequence(s) ` +
+          `with ${data.presets.length} pose(s) and ${data.sequences.length} sequence(s) from the file. Continue?`
         );
         if (!ok) return;
         customPresets = data.presets;
@@ -992,6 +955,162 @@
     resetJoystickVisual();
   });
 
+  // ---- body tracking: webcam -> turret/shoulder/elbow ----
+  // MediaPipe Pose runs in the browser (model + wasm load from CDN on first use).
+  // Follows one arm: upper-arm elevation -> shoulder, elbow bend -> elbow,
+  // wrist sideways offset -> turret. The claw stays on the space bar.
+  let TRACK_ARM = 'right';                               // which of YOUR arms to follow: 'left' | 'right' (set from the UI)
+  const TRACK_INVERT = { T: false, S: false, E: false }; // flip a joint if the arm moves the wrong way
+  const TRACK_SMOOTH = 0.3;                              // share of the gap to the target closed per frame (lower = smoother, laggier)
+  const MP_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2';
+  const POSE_MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
+  const TRACK_HINT = 'Stand back so your whole arm is in frame. The Speed slider limits how fast the arm moves. STOP ends tracking.';
+
+  // <armToJoints>
+  // Image-plane arm pose -> raw joint angles. sh/el/wr are {x,y} in 0..1 image coords
+  // (y down); aspect = video width/height so a non-square frame doesn't skew the angles.
+  function armToJoints(sh, el, wr, aspect) {
+    const vec = (a, b) => ({ x: (b.x - a.x) * aspect, y: b.y - a.y });
+    const len = (p) => Math.hypot(p.x, p.y);
+    const deg = (r) => r * 180 / Math.PI;
+    const clamp1 = (v) => Math.max(-1, Math.min(1, v));
+    const upper = vec(sh, el), fore = vec(el, wr);
+    // shoulder: upper-arm elevation. 0 = hanging down, 90 = horizontal, 180 = straight up
+    const S = deg(Math.atan2(Math.abs(upper.x), upper.y));
+    // elbow: interior angle between upper arm and forearm. 180 = straight, small = folded
+    const E = deg(Math.acos(clamp1(-(upper.x * fore.x + upper.y * fore.y) / (len(upper) * len(fore)))));
+    // turret: wrist sideways offset from shoulder as a fraction of arm reach.
+    // Mirror-view convention: wrist toward the right of the screen = higher angle.
+    const T = 90 + 90 * clamp1(-(wr.x - sh.x) * aspect / (len(upper) + len(fore)));
+    return { T, S, E };
+  }
+  // </armToJoints>
+
+  let trackingOn = false, poseLandmarker = null, trackStream = null;
+  let trackLastVideoTime = -1, trackLastFrame = null;
+  const trackCur = {};
+  const trackVideo = document.getElementById('trackVideo');
+  const trackBtn = document.getElementById('trackBtn');
+  const trackMsg = document.getElementById('trackMsg');
+  const camEl = document.getElementById('cam');
+  const trackCanvas = document.getElementById('trackCanvas');
+  trackMsg.textContent = TRACK_HINT;
+
+  function drawTrackOverlay(pts) {
+    const w = trackVideo.videoWidth, h = trackVideo.videoHeight;
+    if (trackCanvas.width !== w || trackCanvas.height !== h) { trackCanvas.width = w; trackCanvas.height = h; }
+    const g = trackCanvas.getContext('2d');
+    g.clearRect(0, 0, w, h);
+    if (!pts) return;
+    g.lineWidth = Math.max(4, w / 90);
+    g.lineCap = g.lineJoin = 'round';
+    g.strokeStyle = '#ff8a3d';
+    g.fillStyle = '#e7edf6';
+    g.beginPath();
+    pts.forEach((p, i) => g[i ? 'lineTo' : 'moveTo'](p.x * w, p.y * h));
+    g.stroke();
+    pts.forEach(p => { g.beginPath(); g.arc(p.x * w, p.y * h, g.lineWidth * 1.4, 0, 2 * Math.PI); g.fill(); });
+  }
+
+  async function startTracking() {
+    if (!connected || trackingOn) return;
+    const myEpoch = motionEpoch;
+    trackBtn.disabled = true;
+    try {
+      trackMsg.textContent = 'Loading pose model…';
+      if (!poseLandmarker) {
+        const { PoseLandmarker, FilesetResolver } = await import(MP_BASE + '/vision_bundle.mjs');
+        poseLandmarker = await PoseLandmarker.createFromOptions(
+          await FilesetResolver.forVisionTasks(MP_BASE + '/wasm'),
+          { baseOptions: { modelAssetPath: POSE_MODEL }, runningMode: 'VIDEO', numPoses: 1 });
+      }
+      trackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      trackVideo.srcObject = trackStream;
+      await trackVideo.play();
+    } catch (err) {
+      console.error('[tracking] start failed', err);
+      stopTracking();
+      trackMsg.textContent = err.name === 'NotAllowedError'
+        ? 'Camera access was blocked. Allow the camera for this site, then try again.'
+        : 'Tracking failed: ' + (err.message || err);
+      return;
+    }
+    if (!connected || myEpoch !== motionEpoch) { stopTracking(); return; } // disconnected / STOP hit while loading
+    ['T', 'S', 'E'].forEach(k => trackCur[k] = parseInt(sliders[k].value, 10)); // start from where the arm is
+    trackLastVideoTime = -1;
+    trackLastFrame = null;
+    trackingOn = true;
+    camEl.hidden = false;
+    document.getElementById('camWrap').hidden = false;
+    trackBtn.textContent = 'Stop tracking';
+    trackBtn.disabled = false;
+    trackMsg.textContent = TRACK_HINT;
+    requestAnimationFrame(trackFrame);
+  }
+
+  function stopTracking() {
+    drawTrackOverlay(null);
+    trackingOn = false;
+    if (trackStream) trackStream.getTracks().forEach(t => t.stop());
+    trackStream = null;
+    trackVideo.srcObject = null;
+    camEl.hidden = true;
+    document.getElementById('camWrap').hidden = true;
+    trackBtn.textContent = 'Start tracking';
+    trackBtn.disabled = !connected;
+    trackMsg.textContent = TRACK_HINT;
+  }
+
+  function trackFrame(now) {
+    if (!trackingOn) return;
+    requestAnimationFrame(trackFrame);
+    if (trackVideo.currentTime === trackLastVideoTime) return; // no new camera frame yet
+    trackLastVideoTime = trackVideo.currentTime;
+    const dt = trackLastFrame == null ? 0 : Math.min(0.1, (now - trackLastFrame) / 1000);
+    trackLastFrame = now;
+
+    const lm = poseLandmarker.detectForVideo(trackVideo, now).landmarks[0];
+    const pts = lm && (TRACK_ARM === 'right' ? [12, 14, 16] : [11, 13, 15]).map(i => lm[i]);
+    if (!pts || pts.some(p => p.visibility < 0.5)) {
+      drawTrackOverlay(null);
+      trackMsg.textContent = 'Your arm is out of view, so the robot is holding still.';
+      return;
+    }
+    trackMsg.textContent = TRACK_HINT;
+    drawTrackOverlay(pts);
+
+    const raw = armToJoints(pts[0], pts[1], pts[2], trackVideo.videoWidth / trackVideo.videoHeight);
+    const maxStep = JOG_SPEED * dt; // jog-speed slider doubles as a speed limit, so the arm never snaps
+    for (const k of ['T', 'S', 'E']) {
+      const [lo, hi] = LIMITS[k];
+      let target = Math.max(lo, Math.min(hi, raw[k]));
+      if (TRACK_INVERT[k]) target = lo + hi - target;
+      trackCur[k] += Math.max(-maxStep, Math.min(maxStep, TRACK_SMOOTH * (target - trackCur[k])));
+      setJoint(k, trackCur[k], { silent: true });
+    }
+    send('M' + sliders.T.value + ',' + sliders.S.value + ',' + sliders.E.value);
+  }
+
+  // arm choice + per-joint flips: set from the UI, remembered in this browser
+  const TRACK_CFG_KEY = 'armControlTrack';
+  try {
+    const c = JSON.parse(localStorage.getItem(TRACK_CFG_KEY));
+    if (c) { TRACK_ARM = c.arm === 'left' ? 'left' : 'right'; Object.assign(TRACK_INVERT, c.invert); }
+  } catch (e) { /* no saved settings */ }
+  function saveTrackCfg() {
+    try { localStorage.setItem(TRACK_CFG_KEY, JSON.stringify({ arm: TRACK_ARM, invert: TRACK_INVERT })); } catch (e) { /* storage blocked */ }
+  }
+  const trackArmSel = document.getElementById('trackArm');
+  trackArmSel.value = TRACK_ARM;
+  trackArmSel.addEventListener('change', () => { TRACK_ARM = trackArmSel.value; saveTrackCfg(); trackArmSel.blur(); });
+  ['T', 'S', 'E'].forEach(k => {
+    const box = document.getElementById('flip' + k);
+    box.checked = !!TRACK_INVERT[k];
+    box.addEventListener('change', () => { TRACK_INVERT[k] = box.checked; saveTrackCfg(); box.blur(); });
+  });
+
+  trackBtn.addEventListener('click', () => { trackingOn ? stopTracking() : startTracking(); });
+
   let motionEpoch = 0; // bumped by stopAllMotion() to abort any in-flight animation
 
   function animateJointsTo(target, duration) {
@@ -1014,6 +1133,7 @@
 
   function stopAllMotion() {
     motionEpoch++;          // aborts any running animateJointsTo (presets/hotkeys/sequences)
+    stopTracking();         // ends webcam arm tracking
     stopRequested = true;   // breaks the sequence playback loop between steps
     joystickActive = false; // stops the joystick loop
     turretKeysHeld.clear(); // stops the A/D turret jog loop
@@ -1039,7 +1159,7 @@
     if (customPresets.length === 0) {
       const msg = document.createElement('span');
       msg.className = 'no-presets';
-      msg.textContent = 'No custom presets yet -- adjust the sliders and save one below.';
+      msg.textContent = 'No saved poses yet. Set the arm where you want it, then save it below.';
       presetChips.appendChild(msg);
     }
 
@@ -1093,7 +1213,7 @@
     if (buildSteps.length === 0) {
       const msg = document.createElement('span');
       msg.className = 'no-steps';
-      msg.textContent = 'No steps yet -- pick a preset above and click Add Step.';
+      msg.textContent = 'No steps yet. Pick a pose above and press Add step.';
       buildStepsEl.appendChild(msg);
       return;
     }
@@ -1103,7 +1223,7 @@
       row.className = 'build-step';
       row.innerHTML = `
         <span class="step-num">${idx + 1}</span>
-        <span class="step-name">${preset ? escapeHtml(preset.name) : '(deleted preset)'}</span>
+        <span class="step-name">${preset ? escapeHtml(preset.name) : '(deleted pose)'}</span>
         ${preset ? `<span class="step-claw ${preset.G ? 'open' : 'closed'}">${preset.G ? 'open' : 'closed'}</span>` : ''}
         <input type="number" class="hold-input" min="100" max="10000" step="100" value="${step.hold}" title="move duration (ms) -- lower = faster">
         <button class="move-up" ${idx === 0 ? 'disabled' : ''}>↑</button>
@@ -1139,6 +1259,7 @@
     saveSeqBtn.textContent = 'Update Sequence';
     cancelEditBtn.style.display = '';
     seqSaveMsg.textContent = '';
+    document.getElementById('buildDetails').open = true;
     document.querySelector('.build-box').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
@@ -1187,7 +1308,7 @@
     if (sequences.length === 0) {
       const msg = document.createElement('span');
       msg.className = 'no-seqs';
-      msg.textContent = 'No sequences yet -- build one below from your saved presets.';
+      msg.textContent = 'No sequences yet. Build one below from your saved poses.';
       seqList.appendChild(msg);
       return;
     }
@@ -1263,7 +1384,7 @@
     const hotkey = presetHotkey.value.trim().toLowerCase();
     saveMsg.textContent = '';
 
-    if (!name) { saveMsg.textContent = 'Give the preset a name first.'; return; }
+    if (!name) { saveMsg.textContent = 'Give the pose a name first.'; return; }
     if (hotkey && RESERVED_KEYS.includes(hotkey.toUpperCase())) {
       saveMsg.textContent = 'That key is reserved.'; return;
     }
@@ -1306,7 +1427,7 @@
   window.addEventListener('keydown', (e) => {
     if (isTypingContext(e.target)) return;
 
-    if (e.code === 'Space' && connected) {
+    if (e.code === 'Space' && connected && e.target.type !== 'checkbox') {
       e.preventDefault();
       setClaw(!clawOpen);
       return;
@@ -1345,14 +1466,27 @@
   const elbowDot = document.getElementById('elbowDot');
   const handDot = document.getElementById('handDot');
   const turretNeedle = document.getElementById('turretNeedle');
+  const shLabel = document.getElementById('shLabel');
+  const elLabel = document.getElementById('elLabel');
+
+  // turret dial: a tick every 15 degrees, longer at 0 / 45 / 90 / 135 / 180
+  const compassTicks = document.getElementById('compassTicks');
+  for (let a = -90; a <= 90; a += 15) {
+    const rad = a * Math.PI / 180, r1 = a % 45 === 0 ? 48 : 54, r2 = 60;
+    const tick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    tick.setAttribute('class', 'd-tick');
+    tick.setAttribute('x1', 80 + r1 * Math.sin(rad)); tick.setAttribute('y1', 88 - r1 * Math.cos(rad));
+    tick.setAttribute('x2', 80 + r2 * Math.sin(rad)); tick.setAttribute('y2', 88 - r2 * Math.cos(rad));
+    compassTicks.appendChild(tick);
+  }
 
   function updateDiagram() {
     const shoulderVal = parseInt(sliders.S.value, 10);
     const elbowVal = parseInt(sliders.E.value, 10);
     const turretVal = parseInt(sliders.T.value, 10);
 
-    const baseX = 30, baseY = 160;
-    const L1 = 80, L2 = 60;
+    const baseX = 170, baseY = 186;
+    const L1 = 95, L2 = 70;
     const link1Deg = 90 - shoulderVal;
     const link2Deg = link1Deg + (elbowVal - 90);
     const rad1 = link1Deg * Math.PI / 180;
@@ -1369,12 +1503,22 @@
     elbowDot.setAttribute('cx', elbowX); elbowDot.setAttribute('cy', elbowY);
     handDot.setAttribute('cx', handX); handDot.setAttribute('cy', handY);
 
-    const needleDeg = turretVal - 90;
-    const nRad = needleDeg * Math.PI / 180;
-    const cx = 130, cy = 30, r = 18;
-    turretNeedle.setAttribute('x2', cx + r * Math.sin(nRad));
-    turretNeedle.setAttribute('y2', cy - r * Math.cos(nRad));
+    shLabel.textContent = 'Shoulder ' + shoulderVal + '°';
+    elLabel.textContent = 'Elbow ' + elbowVal + '°';
+    const labelLeft = elbowX > 250; // keep the label inside the frame
+    elLabel.setAttribute('text-anchor', labelLeft ? 'end' : 'start');
+    elLabel.setAttribute('x', elbowX + (labelLeft ? -12 : 12));
+    elLabel.setAttribute('y', elbowY - 10);
+
+    const nRad = (turretVal - 90) * Math.PI / 180;
+    turretNeedle.setAttribute('x2', 80 + 46 * Math.sin(nRad));
+    turretNeedle.setAttribute('y2', 88 - 46 * Math.cos(nRad));
   }
+
+  // Esc is a second STOP: works even while typing in a field
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') stopAllMotion(); });
+
+  if (!('serial' in navigator)) document.getElementById('unsupported').hidden = false;
 
   loadPresets();
   loadSequences();
