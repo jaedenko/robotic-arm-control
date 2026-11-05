@@ -50,22 +50,29 @@ exceed the arm's safe range.
 The browser control page. Open it in **Chrome or Edge** (Web Serial isn't
 supported in Firefox/Safari). Features:
 
+- A sticky header with an always-visible **STOP** and Connect button, plus a
+  first-run guide that explains how to connect. Controls stay dimmed until the
+  arm is connected. Works on phones and tablets too
 - Sliders for turret, shoulder, and elbow, with nudge (±1/±5) and reset buttons
 - A vertical joystick (shoulder) plus keyboard jog: **A/D** rotates the
-  turret, **W/S** moves the elbow — all three work simultaneously
+  turret, **W/S** moves the elbow, **H** goes Home, **Space** toggles the claw —
+  all joints work simultaneously
 - Adjustable jog speed with a reset button
-- A live side-view diagram of the arm and a turret compass
-- User-defined presets (pose + claw state) with optional single-key hotkeys
-- Sequences: chain presets together with per-step move duration and repeat/loop,
+- A live side-view arm drawing with angle labels, and a turret dial
+- Saved poses (pose + claw state) with optional single-key hotkeys
+- Sequences: chain poses together with per-step move duration and repeat/loop,
   editable after saving
-- Export/import of presets & sequences as a JSON backup file
-- **Body tracking**: the "Track my arm" button uses your webcam (MediaPipe Pose,
-  runs in the browser) to drive the arm. Upper-arm elevation → shoulder, elbow
-  bend → elbow, wrist sideways offset → turret. Speed is capped by the jog-speed
-  slider. Choose which arm to follow and flip any joint that moves the wrong way
-  via `TRACK_ARM` / `TRACK_INVERT` at the top of the tracking block. The claw
-  stays on the space bar. `node tracking_check.js` sanity-checks the angle math.
-- A STOP button that instantly halts any running animation, sequence, jog, or tracking
+- Export/import of poses & sequences as a JSON backup file
+- **Follow my arm** (body tracking): "Start tracking" uses your webcam (MediaPipe
+  Pose, runs in the browser; video never leaves it) to drive the arm. Upper-arm
+  elevation → shoulder, elbow bend → elbow, wrist sideways offset → turret. A
+  live camera preview with an arm overlay sits under the arm view. Speed is
+  capped by the Speed slider. Pick which arm to follow and flip any joint that
+  moves the wrong way right in the card; the choices are remembered in your
+  browser. The claw stays on the space bar. `node tracking_check.js`
+  sanity-checks the angle math.
+- **STOP** (or **Esc**) instantly halts any running animation, sequence, jog, or
+  tracking
 
 #### Hosted version
 
